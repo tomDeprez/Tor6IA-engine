@@ -87,10 +87,12 @@ func startHead(dir, model string, blocks []string, port, threads int) (*Head, er
 	return nil, errors.New("the model did not finish loading in 30 minutes")
 }
 
-func (h *Head) tail() string {
-	raw, _ := os.ReadFile(h.log)
+func (h *Head) tail() string { return tailFile(h.log, 8) }
+
+func tailFile(path string, n int) string {
+	raw, _ := os.ReadFile(path)
 	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
-	return strings.Join(lines[max(0, len(lines)-8):], "\n")
+	return strings.Join(lines[max(0, len(lines)-n):], "\n")
 }
 
 func (h *Head) Blocks() []Block {
@@ -147,7 +149,7 @@ func demo(model string, machines int, prompt string) error {
 	}
 	threads := max(1, runtime.NumCPU()/2) // one block computes at a time: each may use half of the processors
 
-	var addrs []string
+	var addrs, blockLogs []string
 	for i := 0; i < machines; i++ {
 		port, err := freePort()
 		if err != nil {
@@ -158,11 +160,18 @@ func demo(model string, machines int, prompt string) error {
 		if err != nil {
 			return err
 		}
+		logFile, err := os.CreateTemp("", "tor6ia-engine-block-*.log")
+		if err != nil {
+			return err
+		}
+		defer os.Remove(logFile.Name())
+		cmd.Stdout, cmd.Stderr = logFile, logFile
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("block server: %w", err)
 		}
 		defer cmd.Process.Kill()
 		addrs = append(addrs, addr)
+		blockLogs = append(blockLogs, logFile.Name())
 	}
 	fmt.Printf("%d block servers started. Loading %s across them...\n", machines, model)
 	time.Sleep(time.Second) // let the block servers open their ports
@@ -173,6 +182,10 @@ func demo(model string, machines int, prompt string) error {
 	}
 	head, err := startHead(dir, file, addrs, port, threads)
 	if err != nil {
+		// The head usually fails because a block server did: show what each one last said.
+		for i, path := range blockLogs {
+			fmt.Fprintf(os.Stderr, "--- block server %d (%s)\n%s\n", i+1, addrs[i], tailFile(path, 12))
+		}
 		return err
 	}
 	defer head.Stop()
