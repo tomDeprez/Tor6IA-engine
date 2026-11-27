@@ -6,7 +6,7 @@ Ce fichier est la référence. Il est mis à jour à chaque tâche terminée : c
 
 **État : plan validé par Tom le 2026-11-27. Travail en cours.**
 
-**Prochaine tâche : 3.1**
+**Prochaine tâche : 3.9**
 
 Dernière mise à jour : 2026-11-27
 
@@ -54,9 +54,9 @@ Validées par Tom le 2026-11-27, avec deux changements : le relais tourne sur le
 | Jalon | Ce que tu peux faire à la fin | Version publiée | Durée | Cumul |
 |---|---|---|---|---|
 | E. Essais | Lire un rapport : chaque hypothèse du plan est confirmée ou remplacée | aucune | **fait** | |
-| J1. Blocs à la carte entre amis | Choisir un modèle et un nombre de blocs dans l'interface, ne télécharger que ça, voir les blocs couverts | Tor6IA 0.3.0 | 5 à 7 j | 11,5 j |
-| J2. Bac à sable | Porter un bloc pour quelqu'un sans qu'il puisse toucher à ta machine | moteur 0.3.0 | 2 à 3 j restants | 17,5 j |
-| J3. Le réseau forme les groupes | Des machines derrière des box, sans se connaître, portent un modèle ensemble | Tor6IA 0.4.0, sur invitation | 7,5 à 11,5 j | 29 j |
+| J1. Blocs à la carte entre amis | Choisir un modèle et un nombre de blocs dans l'interface, ne télécharger que ça, voir les blocs couverts | Tor6IA 0.3.0 | **fait** | |
+| J2. Bac à sable | Porter un bloc pour quelqu'un sans qu'il puisse toucher à ta machine | moteur 0.2.3 | **fait** | |
+| J3. Le réseau forme les groupes | Des machines derrière des box, sans se connaître, portent un modèle ensemble | Tor6IA 0.4.0 | **fait**, reste ton test à plusieurs machines | |
 | J4. Paiement par bloc | Chaque machine payée pour sa part, une machine qui triche est exclue | Tor6IA 0.5.0 | 4 à 6 j | 35 j |
 | J5. Ouverture | La scène du chapitre 1, avec de vrais volontaires | Tor6IA 1.0.0 | 3 à 5 j | 40 j |
 
@@ -205,32 +205,32 @@ Le verrou de l'ouverture. Dépend de E1.
 
 Dépend de J1, J2 et E4. Rien ici n'est activé pour le public : sur invitation seulement.
 
-- [ ] **3.1 Le serveur du relais.** 0,5 j.
-  Choisi d'après E4, loué, déployé avec `deploy.ps1` adapté. Pas le VPS actuel.
-  **Fini quand** : coût mensuel et débit garanti écrits ici, relais joignable en HTTPS.
-- [ ] **3.2 Le relais.** 2 à 3 j.
+- [x] **3.1 Le serveur du relais.** *Fait le 2026-11-27. Sur le VPS existant (D4), service `tor6ia-relay` à part, port 8444, installé par `deploy.ps1` depuis la version du moteur que Tor6IA épingle, empreinte vérifiée. Limites : 128 Mo de mémoire, la moitié d'un cœur, 16 Mbit/s par paire de machines, 24 Mbit/s en tout, 20 Go par jour (le serveur envoie aujourd'hui 3,5 Go par jour pour ses sites). Coût : aucun de plus. Après le déploiement : Apache, nginx, Docker (21 conteneurs) et le coordinateur actifs, charge 0,2.*
+  Choisi d'après E4, déployé avec `deploy.ps1` adapté.
+  **Fini quand** : coût mensuel et débit garanti écrits ici, relais joignable.
+- [x] **3.2 Le relais.** *Fait le 2026-11-27, moteur 0.2.4 (`tor6ia-engine relay`). Un porteur garde une connexion sortante vers le relais ; quand une tête le demande, il en ouvre une seconde et le relais joint les deux. Le lien TLS passe à travers : le relais voit qui parle à qui et combien, jamais quoi. Le porteur prouve sa clé au relais. Essai par Internet à travers le VPS, porteur sous Windows qui n'écoute que sur lui-même, tête sous Linux : Llama 3.2 3B chargé par le relais (411 Mo, 20 % du fichier : les tenseurs de moins de 10 Mo), puis 6,7 tokens/s contre 14,7 sans Internet. Aucun port ouvert chez le porteur. Reste pour Tom : trois box différentes.*
   Chaque machine garde une connexion sortante vers le relais, qui fait passer les données entre la tête et les blocs. Identité par la clé du compte, débit plafonné par compte, aucune donnée gardée.
   Fichiers : `relay.go` dans le moteur, un service `tor6ia-relay` sur le serveur.
   **Fini quand** : un groupe de trois machines derrière trois box différentes répond, sans aucun port ouvert.
-- [ ] **3.3 Connexion directe quand c'est possible.** 1 à 2 j.
+- [x] **3.3 Connexion directe quand c'est possible.** *Fait le 2026-11-27. La ligne d'un porteur donne ses routes dans l'ordre : son adresse, puis le relais. La tête essaie l'adresse 3 secondes, puis passe au relais. Vérifié sur le réseau public : tête sous Windows, porteurs sous Windows et Linux sur la même machine, tout en direct, compteur du relais resté à 0 octet avec ses 4 porteurs inscrits. Pas de percement de box : deux machines derrière deux box passent par le relais.*
   Même réseau local ou port joignable : les machines se parlent sans passer par le relais.
   **Fini quand** : deux machines du même réseau échangent en direct, vérifié par le compteur d'octets du relais qui reste à zéro.
-- [ ] **3.4 Registre des blocs dans le coordinateur.** 1 à 1,5 j.
+- [x] **3.4 Registre des blocs dans le coordinateur.** *Fait le 2026-11-27, Tor6IA 0.4.0. Chaque porteur annonce ses blocs toutes les 5 secondes ; 40 secondes de silence et il est retiré. Le coordinateur lit le plan du modèle avec le moteur (16 Mo, aucun modèle stocké). L'interface affiche pour chaque modèle « En blocs : 2 blocs sur 2 portés, chaîne formée », et dit ce qui manque : des porteurs, ou une machine pour tenir la conversation.*
   Qui porte quels blocs de quel modèle. Le coordinateur lit lui-même le plan de chaque modèle du catalogue (16 Mo) : il ne stocke aucun modèle, et un nouveau modèle ne demande aucune mise à jour des programmes.
   **Fini quand** : l'interface affiche « blocs couverts : 14 sur 20, il manque 2 machines » en direct, et le compte reste juste quand des machines arrivent et partent.
-- [ ] **3.5 Le réseau propose à chacun les blocs qui manquent.** 0,5 j.
+- [x] **3.5 Le réseau propose à chacun les blocs qui manquent.** *Fait le 2026-11-27. La fenêtre « Porter des blocs » propose la suite de blocs que le moins de machines portent : avec le bloc 2 porté une seule fois, elle affiche « Le réseau a surtout besoin des blocs 2 à 2 ». Le test à dix machines reste à faire par Tom.*
   Quand tu choisis de porter 3 blocs, le coordinateur te donne les 3 les moins couverts.
   **Fini quand** : dix machines qui choisissent chacune 2 blocs couvrent les 20 blocs une fois, pas dix fois les deux premiers.
-- [ ] **3.6 Assemblage d'une chaîne.** 1 à 1,5 j.
+- [x] **3.6 Assemblage d'une chaîne.** *Fait le 2026-11-27. Une machine qui a le fichier du modèle se propose pour tenir les conversations (« Tenir les conversations d'un modèle en blocs… »). Dès que chaque bloc a ses deux porteurs (D7), le coordinateur lui donne une chaîne, un porteur par bloc, en prenant à chaque pas la machine qui va le plus loin. Elle charge le modèle et le propose au réseau. Sur le réseau public : chaîne formée seule entre une tête Windows, un porteur Windows et un porteur Linux sans Ollama qui n'avait téléchargé que son bloc (577 Mo sur 2 Go) ; une autre machine pose la question et reçoit « Hello, how are you today? » pour 10 crédits.*
   Pour une demande, le coordinateur choisit une machine par bloc, la plus rapide disponible, et une tête (E5).
   **Fini quand** : une demande sur un modèle que personne ne porte en entier reçoit sa réponse, calculée par une chaîne que le réseau a formée seul.
-- [ ] **3.7 Reprise quand une machine part.** 1 à 2 j.
+- [x] **3.7 Reprise quand une machine part.** *Fait le 2026-11-27. Le coordinateur refait la chaîne avec les porteurs qui restent, en gardant la même tête. Côté demandeur, la machine suivante reçoit le texte déjà écrit et continue : la réponse se termine au lieu d'échouer (vrai aussi pour les modèles entiers). Sur le réseau public, porteur Linux tué 4 secondes après le début : la suite « 1, 2, … 15 » arrive entière et dans l'ordre, en 41 secondes au lieu de 9. Défaut trouvé et corrigé : deux chargements de la même chaîne pouvaient partir en même temps.*
   Un modèle n'est annoncé disponible que si chaque bloc a deux porteurs (D7). Une machine part : la chaîne se reforme avec l'autre porteur.
   **Fini quand** : machine débranchée au milieu d'une réponse, la réponse se termine, délai de reprise mesuré.
-- [ ] **3.9 Faire accepter les petits tenseurs par le cache.** 1 à 2 j, seulement si 3.2 montre que c'est nécessaire.
-  llama.cpp envoie toujours les tenseurs de moins de 10 Mo (15 % de Gemma 4 12B, voir E2). Le corriger demande notre propre compilation de llama.cpp avec un seuil plus bas, pour chaque système.
+- [ ] **3.9 Ne plus faire passer les petits tenseurs par le relais.** 1 à 2 j. *Nécessaire, mesuré en 3.2 : 20 % du fichier passe par le relais au chargement, soit 411 Mo pour Llama 3.2 3B et environ 3 Go pour Gemma 4 31B, 25 minutes au débit du relais.*
+  llama.cpp envoie toujours les tenseurs de moins de 10 Mo. Plutôt que de recompiler llama.cpp, le lien du moteur les reconnaît au passage : le porteur les a déjà (il les télécharge avec ses blocs), la tête n'envoie que leur empreinte.
   **Fini quand** : le chargement d'un modèle entièrement préchargé fait passer moins de 1 % de ses octets par le relais.
-- [ ] **3.8 Démonstration J3.** 0,5 j.
+- [~] **3.8 Démonstration J3.** *Faite le 2026-11-27 sur le réseau public avec ce que j'ai : six nœuds sur un PC, quatre sous Windows et deux sous Linux (WSL), coordinateur et relais sur le VPS. Tor6IA 0.4.0 publiée. La démonstration à trois vraies machines sur deux connexions est le test de Tom (D10).*
   **Fini quand** : au moins trois vraies machines (D10), sur au moins deux connexions Internet, portent un modèle qu'aucune ne tient seule. Vitesse mesurée et écrite ici. Tor6IA 0.4.0 publiée, blocs publics sur invitation.
 
 ## 10. Jalon J4 : paiement et triche, par bloc
@@ -292,6 +292,7 @@ Dépend de tout ce qui précède.
 
 ## 15. Journal
 
+- 2026-11-27 : **J3 terminé. Tor6IA 0.4.0, moteur 0.2.4, coordinateur et relais déployés sur le VPS.** Le réseau forme les chaînes seul et reprend quand une machine part. Deux choix faits en route. Les lignes des porteurs passent par le coordinateur, qui les donne à la tête qu'il a choisie : rien à échanger à la main, mais une tête peut garder une ligne et s'en servir hors du réseau, à traiter avant l'ouverture (5.2). Une machine sans Ollama, ou trop petite pour un modèle entier, peut porter des blocs : c'est le cas d'usage du projet. 3.9 devient nécessaire et change de méthode.
 - 2026-11-27 : **J1 et J2 terminés. Tor6IA 0.3.0 et moteur 0.2.3 publiés, pipelines vertes sur Windows, Linux et macOS.** Chacun peut porter des blocs depuis l'interface. Le serveur de blocs est enfermé, plafonné en mémoire, invisible du réseau, relancé s'il tombe, et son cache ne dépasse pas ses blocs. Les groupes sont encore formés à la main : c'est J3 qui les fait former par le réseau. Décision prise en route : la ligne d'un porteur porte un secret, et les deux clés du lien en sont tirées, ce qui évite d'échanger des clés à la main.
 - 2026-11-27 : phase 0 terminée. Premier plan écrit.
 - 2026-11-27 : essai 0.6 fait sur une question de Tom (« peut-on découper sans télécharger ? »). Oui : plan exact dans l'en-tête, morceaux servis à la demande. Plus aucun hébergement de modèles à prévoir.
