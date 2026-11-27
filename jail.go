@@ -186,14 +186,13 @@ func runProbe(args []string) error {
 	}
 	other.Stdin = strings.NewReader("") // so that a refusal comes from the lock, not from a missing NUL device
 	say("start another program", other.Run())
-	// Last, because a lock stops the program here.
-	hog := make([]byte, 1<<30)
-	for i := 0; i < len(hog); i += 4096 {
-		hog[i] = 1
+	// Last, because a lock may stop the program here. The memory is asked from the system itself:
+	// a refusal is an answer, where Go's own allocator would end the program its own way.
+	err = hog(1 << 30)
+	if err == nil {
+		time.Sleep(4 * time.Second) // a lock that watches from outside needs a moment
 	}
-	time.Sleep(4 * time.Second) // a lock that watches from outside needs a moment
-	say(memoryAttempt, nil)
-	runtime.KeepAlive(hog)
+	say(memoryAttempt, err)
 	return nil
 }
 
@@ -280,7 +279,9 @@ func jailTest() error {
 	case <-p.Done:
 	case <-time.After(60 * time.Second):
 		p.Stop()
-		return errors.New("the locked probe did not finish")
+		raw, _ := os.ReadFile(p.Log)
+		said, _ := os.ReadFile(p.Log + ".bridge")
+		return fmt.Errorf("the locked probe did not finish. It wrote:\n%s\nThe lock reported:\n%s", raw, said)
 	}
 	raw, _ := os.ReadFile(p.Log)
 	if !strings.Contains(string(raw), "read a personal file: ") {

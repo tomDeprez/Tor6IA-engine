@@ -275,6 +275,15 @@ func startJailed(j Jail, front, program string, args []string) (*jailProc, error
 	return p, nil
 }
 
+// hog takes n bytes of memory from the system. Committed memory counts at once on Windows.
+func hog(n int) error {
+	const commit, reserve, readWrite = 0x1000, 0x2000, 0x04
+	if mem, _, err := kernel32.NewProc("VirtualAlloc").Call(0, uintptr(n), commit|reserve, readWrite); mem == 0 {
+		return err
+	}
+	return nil
+}
+
 // quiet starts a program without a console. A console is one more process, and the job of a
 // locked program allows two: the bridge and the program.
 func quiet(cmd *exec.Cmd) {

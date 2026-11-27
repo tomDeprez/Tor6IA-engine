@@ -4,6 +4,7 @@ Each `## vX.Y.Z` section becomes the notes of that release.
 
 ## v0.2.3
 
+- A block server listens on its own machine only. Other machines reach the engine through a link encrypted with TLS 1.3, where each side proves a key. The line a holder gives now ends with a secret (`192.168.1.20:50052=4-9#5f1c…`): only who has the line can use the blocks. `head --blocks` takes those lines.
 - The memory of a block server is capped on Linux and macOS too, not only on Windows: past what its blocks need, it is stopped.
 - On macOS a block server now stops with the engine, even when the engine is killed by force.
 - `jail-test` also proves the memory cap, and that a block server does not outlive a killed engine.

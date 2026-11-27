@@ -72,17 +72,17 @@ Sur chaque machine qui prête sa mémoire, choisis les blocs à porter. La machi
 tor6ia-engine block --model gemma4:31b --blocks 4-9 --listen 0.0.0.0:50052
 ```
 
-Elle affiche ce qu'il faut donner à la tête, par exemple `192.168.1.20:50052=4-9`. Sur la machine qui tient la conversation, qui doit avoir le fichier entier du modèle sur son disque :
+Elle affiche la ligne à donner à la tête, par exemple `192.168.1.20:50052=4-9#5f1c…`. La fin de la ligne est un secret : qui a la ligne peut faire calculer cette machine, personne d'autre. Sur la machine qui tient la conversation, qui doit avoir le fichier entier du modèle sur son disque :
 
 ```sh
-tor6ia-engine head --model gemma4:31b --blocks 192.168.1.20:50052=1-3,192.168.1.21:50052=4-9,192.168.1.22:50052=10-16
+tor6ia-engine head --model gemma4:31b --blocks "192.168.1.20:50052=1-3#5f1c…,192.168.1.21:50052=4-9#a07e…,192.168.1.22:50052=10-16#c3d9…"
 ```
 
 La tête place chaque couche sur la machine qui l'a annoncée, refuse un groupe qui ne couvre pas tout le modèle en disant quels blocs manquent, puis sert une API compatible OpenAI sur `http://127.0.0.1:8090/v1`.
 
 **Les serveurs de blocs sont enfermés.** Un serveur de blocs obéit aux ordres de calcul d'une autre machine. Il tourne dans une boîte où il ne peut ni lire tes fichiers, ni se connecter ailleurs, ni lancer un autre programme : AppContainer sous Windows, Landlock et seccomp sous Linux, profil de bac à sable sous macOS. Sa mémoire est plafonnée à ce que ses blocs demandent, et il s'arrête avec le moteur, même tué de force. `tor6ia-engine jail-test` montre tout cela sur ta machine. `--unlocked` retire la boîte.
 
-**Toujours entre machines de confiance.** Un serveur de blocs n'a encore ni identification ni chiffrement : toute machine qui atteint son port peut lui donner du travail, et voit ce qui passe. Utilise un réseau privé ou un VPN.
+**Entre personnes que tu as choisies.** Le serveur de blocs lui-même n'écoute que sur sa propre machine. Les autres machines joignent le moteur, par un lien chiffré en TLS 1.3 où chaque côté prouve une clé issue du secret de la ligne. Une machine sans la ligne n'obtient rien, et personne entre les deux ne peut lire ce qui passe. Les machines doivent quand même pouvoir se joindre : même réseau, VPN, ou port ouvert.
 
 **Sur Mac**, les serveurs de blocs sont testés sur le processeur : ajoute `--device CPU`. La carte graphique d'un vrai Mac n'a pas été testée.
 

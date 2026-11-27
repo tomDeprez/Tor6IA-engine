@@ -51,6 +51,24 @@ jobs:
           curl -fL -o tiny.gguf "$TINY_MODEL"
           "./engine$(go env GOEXE)" demo --model tiny.gguf --machines 3 --prompt "Once upon a time" $DEVICE | tee demo.txt
           grep -q "tokens per second" demo.txt
+      - name: A holder and a head on an encrypted link
+        env:
+          DEVICE: ${{ runner.os == 'macOS' && '--device CPU' || '' }}
+        run: |
+          E="./engine$(go env GOEXE)"
+          "$E" block --model tiny.gguf --blocks 1 --listen 127.0.0.1:50071 --json $DEVICE > block.json &
+          for _ in $(seq 1 60); do grep -q '"ready"' block.json && break; sleep 1; done
+          LINE=$(grep '"ready"' block.json | sed 's/.*"announce":"\([^"]*\)".*/\1/')
+          echo "line: ${LINE%#*}#(secret)"
+          # A head without the right secret is refused.
+          if "$E" head --model tiny.gguf --blocks "${LINE%#*}#00112233445566778899aabbccddeeff" --port 8171 2> wrong.txt; then echo "a wrong secret was accepted"; exit 1; fi
+          cat wrong.txt
+          "$E" head --model tiny.gguf --blocks "$LINE" --port 8171 --json > head.json &
+          for _ in $(seq 1 120); do [ -s head.json ] && break; sleep 1; done
+          cat head.json
+          curl -s -m 60 http://127.0.0.1:8171/v1/chat/completions -H "Content-Type: application/json" \
+            -d '{"messages":[{"role":"user","content":"Once upon a time"}],"max_tokens":16}' | tee answer.json
+          grep -q '"content"' answer.json
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')

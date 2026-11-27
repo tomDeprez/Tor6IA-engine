@@ -3,14 +3,15 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"os/signal"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -25,7 +26,8 @@ const usage = `tor6ia-engine: one model, several machines
   tor6ia-engine demo  [--model gemma4:e2b] [--machines 3]      try it on this machine alone
   tor6ia-engine plan  --model M                                 the blocks of a model, and how many this machine can hold
   tor6ia-engine block --model M --blocks 4-9 [--listen ADDR]    hold some blocks of a model for a head
-  tor6ia-engine head  --model M --blocks ADDR=1-3,ADDR=4-9      run a model across the machines that hold its blocks
+  tor6ia-engine head  --model M --blocks LINE,LINE              run a model across the machines that hold its blocks
+                                                                (a LINE is what "block" prints: address=blocks#secret)
   tor6ia-engine version
 
 A model is a .gguf file, or the name of a model Ollama already downloaded.`
@@ -80,7 +82,7 @@ func main() {
 
 func runBlock(args []string) error {
 	fs := flag.NewFlagSet("block", flag.ExitOnError)
-	listen := fs.String("listen", "127.0.0.1:50052", "address the block server listens on")
+	listen := fs.String("listen", "127.0.0.1:50052", "address other machines reach this one on")
 	threads := fs.Int("threads", max(1, runtime.NumCPU()/2), "processors to use")
 	device := fs.String("device", "", deviceHelp)
 	unlocked := fs.Bool("unlocked", false, unlockedHelp)
@@ -136,31 +138,41 @@ func runBlock(args []string) error {
 		memoryMB = memoryCap(size)
 		announce = fmt.Sprintf("=%d-%d", first, last)
 	}
-	block, err := startBlock(dir, *listen, *threads, *device, !*unlocked, memoryMB)
+	// The block server listens on this machine only: it has no login. Other machines reach the
+	// engine, through a link that asks for the secret of the line printed below.
+	inner, err := freePort()
+	if err != nil {
+		return err
+	}
+	block, err := startBlock(dir, "127.0.0.1:"+strconv.Itoa(inner), *threads, *device, !*unlocked, memoryMB)
 	if err != nil {
 		return err
 	}
 	defer block.Stop()
-	addr, err := reachable(block.Addr)
+	secret, err := linkSecret()
 	if err != nil {
-		addr = block.Addr
+		return err
 	}
+	front, err := serveLink(*listen, secret, block.Addr)
+	if err != nil {
+		return err
+	}
+	defer front.Close()
+	addr, err := reachable(front.Addr().String())
+	if err != nil {
+		addr = front.Addr().String()
+	}
+	line := addr + announce + "#" + hex.EncodeToString(secret)
 	if *asJSON {
-		json.NewEncoder(os.Stdout).Encode(map[string]any{"ready": true, "addr": addr, "announce": addr + announce, "locked": !*unlocked})
-	} else if announce != "" {
-		fmt.Printf("Give this to the head of the group:  %s%s\n", addr, announce)
-	}
-	how := "locked in: it cannot read your files, connect out or start programs"
-	if *unlocked {
-		how = "NOT locked in: it has every right of your account"
-	}
-	if !*asJSON {
-		fmt.Printf("Block server on %s, %d processors, %s.\n", block.Addr, *threads, how)
-		if host, _, _ := net.SplitHostPort(*listen); host != "127.0.0.1" && host != "localhost" && host != "::1" {
-			fmt.Println("It has no login and no encryption: any machine that can reach this port can give it work.")
+		json.NewEncoder(os.Stdout).Encode(map[string]any{"ready": true, "addr": addr, "announce": line, "locked": !*unlocked})
+	} else {
+		how := "locked in: it cannot read your files, connect out or start programs"
+		if *unlocked {
+			how = "NOT locked in: it has every right of your account"
 		}
-	}
-	if !*asJSON {
+		fmt.Printf("Give this line to the head of the group:  %s\n", line)
+		fmt.Printf("Block server behind %s, %d processors, %s.\n", front.Addr(), *threads, how)
+		fmt.Println("Only a machine that has this line can give it work, and what passes between them is encrypted.")
 		fmt.Println("Stop it with Ctrl+C.")
 	}
 	stop := make(chan os.Signal, 1)
@@ -182,7 +194,7 @@ func runBlock(args []string) error {
 func runHead(args []string) error {
 	fs := flag.NewFlagSet("head", flag.ExitOnError)
 	model := fs.String("model", "", "GGUF file, or a model Ollama has")
-	blocks := fs.String("blocks", "", "machines and the blocks each one holds, as host:port=1-3,host:port=4-9 (or plain host:port,host:port to let llama.cpp divide)")
+	blocks := fs.String("blocks", "", "the lines the holders gave, separated by commas: host:port=1-3#secret,host:port=4-9#secret")
 	port := fs.Int("port", 8090, "local port of the OpenAI-compatible API")
 	threads := fs.Int("threads", max(1, runtime.NumCPU()/2), "processors to use")
 	context := fs.Int("ctx", defaultContext, "tokens a conversation may hold; every block server reserves memory for it")
@@ -201,11 +213,29 @@ func runHead(args []string) error {
 	if err != nil {
 		return err
 	}
+	// Each item is the line a holder gave: its address, the blocks it holds, the secret of its link.
+	secrets := map[string][]byte{}
+	var addrs, announced []string
+	for _, item := range strings.Split(*blocks, ",") {
+		rest, secretHex, _ := strings.Cut(strings.TrimSpace(item), "#")
+		secret, err := hex.DecodeString(secretHex)
+		if err != nil || len(secret) != 16 {
+			return fmt.Errorf("%q: the secret at the end is missing or cut. Copy the whole line the holder shows", rest)
+		}
+		addr, _, hasBlocks := strings.Cut(rest, "=")
+		secrets[addr] = secret
+		addrs = append(addrs, addr)
+		if hasBlocks {
+			announced = append(announced, rest)
+		}
+	}
 	// Machines that announced their blocks get exactly those layers. The group must make the whole model.
-	addrs := strings.Split(*blocks, ",")
 	var holders []holder
 	var modelBlocks []ModelBlock
-	if strings.Contains(*blocks, "=") {
+	if len(announced) > 0 {
+		if len(announced) != len(addrs) {
+			return fmt.Errorf("some machines announce their blocks and others do not: every line must be of the same kind")
+		}
 		f, err := os.Open(file)
 		if err != nil {
 			return err
@@ -217,7 +247,7 @@ func runHead(args []string) error {
 			return err
 		}
 		modelBlocks = plan.Blocks()
-		if holders, err = parseHolders(*blocks, len(modelBlocks)); err != nil {
+		if holders, err = parseHolders(strings.Join(announced, ","), len(modelBlocks)); err != nil {
 			return err
 		}
 		if err := cover(holders, len(modelBlocks)); err != nil {
@@ -229,13 +259,29 @@ func runHead(args []string) error {
 		}
 		*shares = sharesFor(holders, modelBlocks)
 	}
+	// llama.cpp connects to ports of this machine: each one leads to a holder through its link.
+	local, holderOf := make([]string, len(addrs)), map[string]string{}
+	for i, addr := range addrs {
+		l, err := dialLink(addr, secrets[addr])
+		if err != nil {
+			return fmt.Errorf("the holder does not answer, or its line is not the right one: %w", err)
+		}
+		defer l.Close()
+		local[i] = l.Addr().String()
+		holderOf[local[i]] = addr
+	}
 	fmt.Fprintf(os.Stderr, "Loading %s across %s...\n", *model, strings.Join(addrs, ", "))
-	head, err := startHead(dir, file, addrs, *shares, *context, *port, *threads)
+	head, err := startHead(dir, file, local, *shares, *context, *port, *threads)
 	if err != nil {
 		return err
 	}
 	defer head.Stop()
 	placed := head.Blocks()
+	for i := range placed {
+		if addr, ok := holderOf[placed[i].Machine]; ok {
+			placed[i].Machine = addr
+		}
+	}
 	if gone := absent(placed, addrs); len(gone) > 0 {
 		return fmt.Errorf("these block servers did not answer, the model was not split: %s", strings.Join(gone, ", "))
 	}
