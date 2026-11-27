@@ -2,6 +2,11 @@
 
 Each `## vX.Y.Z` section becomes the notes of that release.
 
+## v0.2.5
+
+- Loading a model no longer sends a fifth of it over the network. llama.cpp always sends the tensors under 10 MB whole. Now a holder says which tensors it has on its disk when a link opens, and the head sends only the hash of those. Measured with Llama 3.2 3B through a relay: 2 MB carried instead of 411 MB, ready in 20 seconds instead of 3 minutes 30. llama.cpp itself is unchanged. A holder downloads all the tensors of its blocks, the small ones too.
+- Works with older engines: a side that does not know this gets the plain link.
+
 ## v0.2.4
 
 - `relay`: a small server that joins two machines unable to reach each other, as most machines behind a home router are. A holder started with `block --relay host:port` keeps a connection open towards it, and its line gains a second route. The head tries the direct address first and the relay after. The relay carries the link's own TLS: it sees who talks to whom and how much, never what. It caps the speed of each pair, its total speed and what it carries in a day.

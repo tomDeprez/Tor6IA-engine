@@ -169,7 +169,9 @@ func fetchLayers(src *source, plan *Plan, first, last int, outside bool, progres
 	var total int64
 	for _, t := range plan.Tensors {
 		wanted := (t.Layer >= first && t.Layer <= last) || (outside && t.Layer < 0)
-		if wanted && t.Size > cacheThreshold {
+		// Above cacheThreshold llama.cpp itself asks the block server whether it has the tensor.
+		// Below, the link does (known.go). Either way the holder needs it on its disk.
+		if wanted && t.Size >= knownMin {
 			todo = append(todo, t)
 			total += t.Size
 		}

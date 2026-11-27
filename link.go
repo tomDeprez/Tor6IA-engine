@@ -63,6 +63,7 @@ func linkConfig(mine ed25519.PrivateKey, peer ed25519.PublicKey) (*tls.Config, e
 		Certificates: []tls.Certificate{{Certificate: [][]byte{der}, PrivateKey: mine}},
 		MinVersion:   tls.VersionTLS13,
 		ClientAuth:   tls.RequireAnyClientCert,
+		NextProtos:   []string{linkProto}, // both sides know it: tensors the holder has are named, not sent
 		// No authority signs these certificates: the check below compares the key itself.
 		InsecureSkipVerify: true,
 		VerifyPeerCertificate: func(raw [][]byte, _ [][]*x509.Certificate) error {
@@ -112,7 +113,25 @@ func (b *blockLink) serve(raw net.Conn) {
 		c.Close()
 		return
 	}
-	pipe(c, in)
+	if c.ConnectionState().NegotiatedProtocol != linkProto {
+		pipe(c, in)
+		return
+	}
+	// Say which tensors are on this disk, then put back the ones the head names instead of sending.
+	dir, err := blockCache()
+	if err == nil {
+		err = sendKnown(c, tensorsIn(dir))
+	}
+	if err == nil {
+		go func() {
+			io.Copy(c, in) // the block server's answers go back as they are
+			c.Close()
+			in.Close()
+		}()
+		holderFromHead(in, c, dir)
+	}
+	c.Close()
+	in.Close()
 }
 
 // listen accepts direct links on an address of this machine.
@@ -142,7 +161,8 @@ func dialLink(routes string, secret []byte) (net.Listener, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	open := func(route string) (net.Conn, error) {
+	// open returns the link, and the tensors the holder said it has when the link names them.
+	open := func(route string) (net.Conn, map[uint64]bool, error) {
 		wait := 10 * time.Second
 		if strings.Contains(routes, "|") {
 			wait = 3 * time.Second // another route follows: do not linger on an address out of reach
@@ -155,22 +175,29 @@ func dialLink(routes string, secret []byte) (net.Listener, string, error) {
 			raw, err = net.DialTimeout("tcp", route, wait)
 		}
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		c := tls.Client(raw, cfg)
 		c.SetDeadline(time.Now().Add(15 * time.Second))
 		if err := c.Handshake(); err != nil {
 			c.Close()
-			return nil, err
+			return nil, nil, err
+		}
+		var have map[uint64]bool
+		if c.ConnectionState().NegotiatedProtocol == linkProto {
+			if have, err = readKnown(c); err != nil {
+				c.Close()
+				return nil, nil, err
+			}
 		}
 		c.SetDeadline(time.Time{})
-		return c, nil
+		return c, have, nil
 	}
 	// The first route that works is the one this group keeps.
 	var route string
 	var failures []string
 	for _, r := range strings.Split(routes, "|") {
-		c, err := open(r)
+		c, _, err := open(r)
 		if err == nil {
 			c.Close()
 			route = r
@@ -192,12 +219,23 @@ func dialLink(routes string, secret []byte) (net.Listener, string, error) {
 				return
 			}
 			go func() {
-				out, err := open(route)
+				out, have, err := open(route)
 				if err != nil {
 					c.Close()
 					return
 				}
-				pipe(c, out)
+				if have == nil {
+					pipe(c, out)
+					return
+				}
+				go func() {
+					io.Copy(c, out) // answers come back as they are
+					c.Close()
+					out.Close()
+				}()
+				headToHolder(out, c, have)
+				c.Close()
+				out.Close()
 			}()
 		}
 	}()
