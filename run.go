@@ -75,6 +75,10 @@ func startBlock(dir, listen string, threads int, device string, locked bool) (*j
 		return nil, err
 	}
 	cmd := command(dir, "ggml-rpc-server", args(host, port)...)
+	// Locked in or not, block servers keep their tensors in the engine's own folder.
+	if _, writeDir, err := jailHome(); err == nil {
+		cmd.Env = append(cmd.Env, "LLAMA_CACHE="+writeDir)
+	}
 	cmd.Stdout, cmd.Stderr = logFile, logFile
 	if err := launch(cmd); err != nil {
 		return nil, fmt.Errorf("block server: %w", err)

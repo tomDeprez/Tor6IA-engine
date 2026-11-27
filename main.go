@@ -53,6 +53,10 @@ func main() {
 		err = runBlock(os.Args[2:])
 	case "head":
 		err = runHead(os.Args[2:])
+	case "plan":
+		err = runPlan(os.Args[2:])
+	case "fetch":
+		err = runFetch(os.Args[2:])
 	case "jail-test":
 		err = jailTest()
 	case "jail-exec":

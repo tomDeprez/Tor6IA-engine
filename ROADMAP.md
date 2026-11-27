@@ -6,7 +6,7 @@ Ce fichier est la référence. Il est mis à jour à chaque tâche terminée : c
 
 **État : plan validé par Tom le 2026-11-27. Travail en cours.**
 
-**Prochaine tâche : E2**
+**Prochaine tâche : E3**
 
 Dernière mise à jour : 2026-11-27
 
@@ -93,10 +93,23 @@ Aucun produit fini ici. Chaque essai répond à une question par une mesure, dan
   - macOS : profil `sandbox-exec`.
   - Pièges rencontrés : sur Windows Server un programme enfermé ne peut pas ouvrir `NUL`, il faut lui donner une entrée explicite. Sur Linux, llama.cpp demande `libgomp1`, absent des systèmes minimaux.
   - Coût mesuré sur Windows, Gemma 4 E2B en deux blocs : 2,1 tokens/s enfermé contre 3,1 libre, soit 32 % de perte, à la limite fixée en 2.6.
-- [ ] **E2 Un serveur de blocs peut-il charger ses couches depuis son disque ?** 1 j.
+- [x] **E2 Un serveur de blocs peut-il charger ses couches depuis son disque ?** *Fait le 2026-11-27 : oui pour 85 % du modèle, pas pour le reste.*
   Remplir le cache à l'avance avec les morceaux pris dans le fichier public, puis charger le modèle.
   **Fini quand** : un modèle se charge sur deux serveurs de blocs avec moins de 1 % de ses octets envoyés par la tête, mesuré avec `proof/delayproxy`. La règle de calcul des noms de fichiers du cache est écrite ici.
   **Si ça échoue** : fichier GGUF partiel reconstitué sur chaque machine avec `llama-gguf-split`.
+  **Résultat**, Gemma 4 12B (7,4 Go) sur deux serveurs de blocs, octets mesurés avec `proof/delayproxy` :
+
+  | Cache des serveurs de blocs | Envoyé par la tête | Chargement |
+  |---|---|---|
+  | vide | 7 025 Mo | 205 s |
+  | prérempli avec les couches | 1 851 Mo | 112 s |
+  | prérempli avec les couches et ce qui est hors couches | 1 063 Mo | 83 s |
+
+  - Règle du cache, confirmée : un fichier par tenseur dans `<LLAMA_CACHE>/rpc/`, nommé par l'empreinte FNV-1a 64 bits de ses octets, écrite en 16 chiffres hexadécimaux. `tor6ia-engine fetch` la reproduit : les fichiers obtenus depuis le disque et depuis le registre public sont identiques.
+  - Le critère « moins de 1 % » n'est **pas** atteint : il reste 15 %. llama.cpp ne prend dans son cache que les tenseurs de plus de 10 Mo, seuil fixé dans son code. Les petits tenseurs sont toujours envoyés par la tête : 1,06 Go pour ce modèle.
+  - Le gros tenseur hors couches (826 Mo ici) est placé avec les dernières couches : la machine qui porte la fin du modèle doit le précharger aussi (`fetch --outside`).
+  - Décision : on continue avec llama.cpp tel quel. Le seuil devient la tâche 3.9, à faire seulement si le trafic du relais le demande.
+  - Depuis le registre public, pour un modèle absent du disque : 3 couches de Gemma 4 31B, 0,84 Go en 65 s, 5 % du modèle. Les requêtes reprennent après une coupure (la première tentative s'était arrêtée à 41 %).
 - [ ] **E3 Peut-on imposer quelle machine porte quelles couches ?** 0,5 j.
   **Fini quand** : avec trois serveurs de blocs et les parts 1, 3 et 2, les couches affichées par le moteur suivent exactement le plan demandé, avec `--tensor-split` ou `--override-tensor`.
 - [ ] **E4 Combien d'octets et d'allers-retours par token entre deux blocs ?** 0,5 j.
@@ -112,11 +125,11 @@ Aucun produit fini ici. Chaque essai répond à une question par une mesure, dan
 
 Tout ce qui se voit dans l'interface, sans encore ouvrir aux inconnus. Dépend de E2, E3, E5.
 
-- [ ] **1.1 Le plan d'un modèle dans le moteur.** 0,5 à 1 j.
+- [~] **1.1 Le plan d'un modèle dans le moteur.** *Fait le 2026-11-27 : `tor6ia-engine plan --model gemma4:31b` décrit un modèle jamais téléchargé (18,67 Go, 60 couches de 257 à 314 Mo, 1 102 Mo hors couches) en lisant 15,8 Mo, soit 0,08 % du fichier. Plan identique depuis le disque et depuis le registre. Reste : le regroupement en blocs d'environ 1 Go et le test sur les 5 modèles du catalogue.*
   `tor6ia-engine plan --model gemma4:31b` lit l'en-tête par morceaux depuis le registre et donne les couches, leur taille, et le découpage en blocs d'environ 1 Go. Sortie lisible et sortie JSON.
   Fichiers : `gguf.go` (lecture de l'en-tête), `plan.go`.
   **Fini quand** : le plan d'un modèle jamais téléchargé s'affiche en ayant reçu moins de 20 Mo, identique à celui lu dans le fichier complet. Testé sur les 5 modèles du catalogue.
-- [ ] **1.2 Télécharger seulement ses blocs.** 1 j.
+- [~] **1.2 Télécharger seulement ses blocs.** *Fait le 2026-11-27 : `tor6ia-engine fetch --model M --layers 3-5` prend les morceaux sur le disque si le modèle y est, sinon au registre, avec reprise. Reste : l'adressage par blocs et la progression pour l'interface.*
   `tor6ia-engine fetch --model gemma4:31b --blocks 3-5` prend les morceaux du fichier public, avec reprise après coupure et progression.
   À vérifier : le registre ne donne qu'une empreinte pour le fichier entier. L'intégrité d'un morceau repose sur HTTPS vers le registre officiel, sauf si le cache vérifie l'empreinte de chaque couche (E2).
   **Fini quand** : une machine qui porte 3 blocs sur 20 a téléchargé 3 vingtièmes du modèle, pas plus, et sert ces blocs.
@@ -184,6 +197,9 @@ Dépend de J1, J2 et E4. Rien ici n'est activé pour le public : sur invitation 
 - [ ] **3.7 Reprise quand une machine part.** 1 à 2 j.
   Un modèle n'est annoncé disponible que si chaque bloc a deux porteurs (D7). Une machine part : la chaîne se reforme avec l'autre porteur.
   **Fini quand** : machine débranchée au milieu d'une réponse, la réponse se termine, délai de reprise mesuré.
+- [ ] **3.9 Faire accepter les petits tenseurs par le cache.** 1 à 2 j, seulement si 3.2 montre que c'est nécessaire.
+  llama.cpp envoie toujours les tenseurs de moins de 10 Mo (15 % de Gemma 4 12B, voir E2). Le corriger demande notre propre compilation de llama.cpp avec un seuil plus bas, pour chaque système.
+  **Fini quand** : le chargement d'un modèle entièrement préchargé fait passer moins de 1 % de ses octets par le relais.
 - [ ] **3.8 Démonstration J3.** 0,5 j.
   **Fini quand** : au moins trois vraies machines (D10), sur au moins deux connexions Internet, portent un modèle qu'aucune ne tient seule. Vitesse mesurée et écrite ici. Tor6IA 0.4.0 publiée, blocs publics sur invitation.
 
@@ -248,6 +264,7 @@ Dépend de tout ce qui précède.
 
 - 2026-11-27 : phase 0 terminée. Premier plan écrit.
 - 2026-11-27 : essai 0.6 fait sur une question de Tom (« peut-on découper sans télécharger ? »). Oui : plan exact dans l'en-tête, morceaux servis à la demande. Plus aucun hébergement de modèles à prévoir.
+- 2026-11-27 : **E2 fait.** Le préchargement par le cache marche pour 85 % du modèle et divise le temps de chargement par 2,5. Les 15 % restants (tenseurs de moins de 10 Mo) passent toujours par la tête : tâche 3.9 ajoutée, conditionnelle. Le plan et le téléchargement par couches existent en commandes (`plan`, `fetch`).
 - 2026-11-27 : **E1 réussi, et 2.1 faite dans la foulée.** Le bac à sable existe sur Windows, Linux et macOS sans droits administrateur. La route de repli WSL est abandonnée. Trois allers-retours avec la pipeline ont été nécessaires pour Windows Server (périphérique `NUL` interdit dans la boîte).
 - 2026-11-27 : plan validé par Tom. Consigne : tout faire sans s'arrêter, mettre ce fichier à jour à chaque tâche, essais sur le VPS, test final par Tom avec des gens. D4 et D10 changées en conséquence.
 - 2026-11-27 : plan complet réécrit avec décisions à valider, jalons et étape d'essais. Découvert pendant la préparation : le cache des serveurs de blocs occupe 22 Go après une journée d'essais, d'où la tâche 2.5. En attente de la validation de Tom.
