@@ -39,7 +39,8 @@ func freePort() (int, error) {
 //
 // locked runs it inside the lock described in jail.go, which is the only safe way to serve
 // machines that are not trusted. Unlocked, it has every right of the user who started it.
-func startBlock(dir, listen string, threads int, device string, locked bool) (*jailProc, error) {
+// memoryMB is the most memory it may use, 0 for no limit (the limit is enforced on Windows).
+func startBlock(dir, listen string, threads int, device string, locked bool, memoryMB int) (*jailProc, error) {
 	host, portText, err := net.SplitHostPort(listen)
 	port, perr := strconv.Atoi(portText)
 	if err != nil || perr != nil {
@@ -68,7 +69,7 @@ func startBlock(dir, listen string, threads int, device string, locked bool) (*j
 			}
 			host = "127.0.0.1"
 		}
-		return startJailed(Jail{Run: []string{dir}, Write: writeDir, Port: inner}, listen, program, args(host, inner))
+		return startJailed(Jail{Run: []string{dir}, Write: writeDir, Port: inner, MemoryMB: memoryMB}, listen, program, args(host, inner))
 	}
 	logFile, err := os.CreateTemp("", "tor6ia-engine-block-*.log")
 	if err != nil {
@@ -101,6 +102,9 @@ func dialable(listen string) string {
 	return net.JoinHostPort(host, port)
 }
 
+// defaultContext is the conversation length the head reserves memory for, in tokens.
+const defaultContext = 8192
+
 // Head is the machine that holds the conversation: it runs the model across the block servers
 // and serves an OpenAI-compatible API.
 type Head struct {
@@ -112,12 +116,16 @@ type Head struct {
 
 // shares, when given, says which part of the model each block server takes, in the order of
 // blocks: 1,3,2 gives the second one half of the layers. Empty lets llama.cpp divide by free memory.
-func startHead(dir, model string, blocks []string, shares string, port, threads int) (*Head, error) {
+// context is how many tokens a conversation may hold. Every block server reserves memory for it.
+func startHead(dir, model string, blocks []string, shares string, context, port, threads int) (*Head, error) {
 	logFile, err := os.CreateTemp("", "tor6ia-engine-head-*.log")
 	if err != nil {
 		return nil, err
 	}
 	args := []string{"-m", model, "--host", "127.0.0.1", "--port", strconv.Itoa(port), "-t", strconv.Itoa(threads),
+		// Without this llama.cpp reserves the largest context the model was trained for: 262 144 tokens
+		// for Gemma 4, gigabytes of memory on every block server for conversations nobody has.
+		"-c", strconv.Itoa(context),
 		"--no-webui", "-v", // -v prints which machine receives each layer
 		"--reasoning", "off"} // answer directly: thinking text would cross every machine for nothing
 	if len(blocks) > 0 {
@@ -224,7 +232,7 @@ func demo(model string, machines int, prompt, device string, locked bool) error 
 		if err != nil {
 			return err
 		}
-		block, err := startBlock(dir, "127.0.0.1:"+strconv.Itoa(port), threads, device, locked)
+		block, err := startBlock(dir, "127.0.0.1:"+strconv.Itoa(port), threads, device, locked, 0)
 		if err != nil {
 			return err
 		}
@@ -242,7 +250,7 @@ func demo(model string, machines int, prompt, device string, locked bool) error 
 	if err != nil {
 		return err
 	}
-	head, err := startHead(dir, file, addrs, "", port, threads)
+	head, err := startHead(dir, file, addrs, "", defaultContext, port, threads)
 	if err != nil {
 		// The head usually fails because a block server did: show what each one last said.
 		for i, path := range blockLogs {

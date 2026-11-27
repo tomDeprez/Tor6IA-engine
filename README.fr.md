@@ -52,43 +52,64 @@ Le découpage coûte peu, et la distance moins que prévu.
 
 ## L'utiliser sur plusieurs machines
 
-Sur chaque machine qui prête sa mémoire :
+Un modèle est découpé en **blocs** d'environ un gigaoctet. Chaque machine le découpe de la même façon, à partir du seul en-tête du modèle :
 
 ```sh
-tor6ia-engine block --listen 0.0.0.0:50052
+tor6ia-engine plan --model gemma4:31b
 ```
 
-Sur la machine qui tient la conversation, avec le fichier du modèle :
+```
+gemma4:31b: 18.67 GB, 60 layers, and 1102 MB outside the layers
+Plan read from the public registry, model not downloaded: 15.8 MB read, 0.08 % of the file.
+
+16 blocks: ...
+This machine has 17.2 GB of free memory: 11 of the 16 blocks advised.
+```
+
+Sur chaque machine qui prête sa mémoire, choisis les blocs à porter. La machine télécharge ces blocs et rien d'autre, directement depuis le registre public :
 
 ```sh
-tor6ia-engine head --model gemma4:12b --blocks 192.168.1.20:50052,192.168.1.21:50052
+tor6ia-engine block --model gemma4:31b --blocks 4-9 --listen 0.0.0.0:50052
 ```
 
-La tête affiche les blocs, puis sert une API compatible OpenAI sur `http://127.0.0.1:8090/v1`. Une machine avec plus de mémoire libre reçoit plus de couches.
+Elle affiche ce qu'il faut donner à la tête, par exemple `192.168.1.20:50052=4-9`. Sur la machine qui tient la conversation, qui doit avoir le fichier entier du modèle sur son disque :
 
-**Sur Mac.** La démo et les serveurs de blocs sont testés sur le processeur : ajoute `--device CPU`. Sur les Mac virtuels de GitHub, la carte graphique arrête un serveur de blocs avec « unsupported op » ; la carte graphique d'un vrai Mac n'a pas encore été testée.
+```sh
+tor6ia-engine head --model gemma4:31b --blocks 192.168.1.20:50052=1-3,192.168.1.21:50052=4-9,192.168.1.22:50052=10-16
+```
 
-**Uniquement entre machines de confiance.** Un serveur de blocs n'a ni identification ni chiffrement : toute machine qui atteint son port peut lancer des calculs dedans. Utilise un réseau privé ou un VPN. C'est pour ça que le moteur n'est pas encore ouvert aux inconnus sur le réseau Tor6IA.
+La tête place chaque couche sur la machine qui l'a annoncée, refuse un groupe qui ne couvre pas tout le modèle en disant quels blocs manquent, puis sert une API compatible OpenAI sur `http://127.0.0.1:8090/v1`.
+
+**Les serveurs de blocs sont enfermés.** Un serveur de blocs obéit aux ordres de calcul d'une autre machine. Il tourne dans une boîte où il ne peut ni lire tes fichiers, ni se connecter ailleurs, ni lancer un autre programme : AppContainer sous Windows, Landlock et seccomp sous Linux, profil de bac à sable sous macOS. `tor6ia-engine jail-test` le montre sur ta machine. `--unlocked` retire la boîte.
+
+**Toujours entre machines de confiance.** Un serveur de blocs n'a encore ni identification ni chiffrement : toute machine qui atteint son port peut lui donner du travail, et voit ce qui passe. Utilise un réseau privé ou un VPN.
+
+**Sur Mac**, les serveurs de blocs sont testés sur le processeur : ajoute `--device CPU`. La carte graphique d'un vrai Mac n'a pas été testée.
 
 ## Où on en est
 
-Construit et testé :
+Construit et testé, sur Windows, Linux et macOS à chaque version :
 
-- Un modèle réparti entre des serveurs de blocs, avec l'emplacement de chaque couche affiché.
-- Une commande pour l'essayer. Chaque version lance la démo sur des machines Windows, Linux et macOS vierges (macOS sur le processeur).
-- Le coût du délai réseau, mesuré.
+- Un modèle réparti entre des serveurs de blocs, chacun enfermé.
+- Les blocs : le même découpage sur toutes les machines, le conseil pour cette machine, le téléchargement des seuls blocs choisis.
+- Une tête qui assemble les machines qui ont annoncé leurs blocs.
+- Branché dans Tor6IA depuis sa version 0.2.0.
 
-Branché dans Tor6IA depuis sa version 0.2.0 : un nœud partage un modèle réparti sur des machines de confiance, et son interface affiche les blocs.
+Mesuré sur un portable sans carte graphique, Gemma 4 12B :
+
+| Quoi | Résultat |
+|---|---|
+| Vitesse, trois serveurs de blocs enfermés | 3,2 tokens par seconde |
+| Mémoire d'un serveur de blocs | 1,3 fois la taille de ses blocs |
+| Envoyé par la tête quand les blocs sont déjà téléchargés | 15 % du modèle, au lieu de tout |
+| Trafic par token, de deux à huit machines | 350 à 690 Ko |
 
 Pas encore construit. Le plan détaillé, tâche par tâche, est dans [ROADMAP.md](ROADMAP.md) et il est mis à jour à chaque étape. En résumé :
 
 1. **Relais.** Les machines derrière une box ne se joignent pas directement. Le coordinateur Tor6IA portera le trafic entre la tête et les blocs.
 2. **Plusieurs machines par bloc.** Quand l'une part, la suivante qui porte le même bloc prend le relais. Aujourd'hui un serveur de blocs qui s'arrête coupe la réponse.
-3. **Les blocs affichés dans Tor6IA.** Combien de blocs porte ta machine, combien sont couverts, et combien de machines un modèle attend encore.
+3. **Des groupes formés par le réseau**, avec les blocs choisis dans l'interface de Tor6IA.
 4. **Paiement par bloc.** Chaque machine payée pour la part du modèle qu'elle calcule.
-5. **Bac à sable.** Faire tourner des serveurs de blocs sans risque pour des inconnus, ce que le réseau public exige.
-
-Limite connue : quand le moteur lui-même est tué de force, le modèle qu'il a lancé continue de tourner et garde sa mémoire. L'arrêter normalement, ou arrêter le programme qui le pilote, nettoie tout.
 
 ## Licence
 

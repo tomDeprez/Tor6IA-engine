@@ -46,8 +46,15 @@ func containerSID() (unsafe.Pointer, string, error) {
 }
 
 // grant lets the container use one folder. Without it the container sees nothing of the user's files.
+// The right is inherited by what is created in the folder later; /T also gives it to what is there
+// already. A file that disappears while icacls walks the folder (a download being renamed) makes
+// it fail, so that walk is allowed to fail as long as the folder itself took the right.
 func grant(sidText, dir, rights string) error {
-	out, err := exec.Command("icacls", dir, "/grant", "*"+sidText+":(OI)(CI)"+rights, "/T", "/Q").CombinedOutput()
+	rule := "*" + sidText + ":(OI)(CI)" + rights
+	if exec.Command("icacls", dir, "/grant", rule, "/T", "/C", "/Q").Run() == nil {
+		return nil
+	}
+	out, err := exec.Command("icacls", dir, "/grant", rule, "/Q").CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("icacls %s: %v %s", dir, err, strings.TrimSpace(string(out)))
 	}

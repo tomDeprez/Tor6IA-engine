@@ -2,6 +2,14 @@
 
 Each `## vX.Y.Z` section becomes the notes of that release.
 
+## v0.2.0
+
+- Block servers are locked in by default: no personal file, no outgoing connection, no other program. An AppContainer on Windows, Landlock and seccomp on Linux, a sandbox profile on macOS. `jail-test` proves it on your machine; `--unlocked` removes the lock.
+- Blocks: `plan` cuts a model into blocks of about 1 GB and says how many this machine can hold, without downloading the model. `block --model M --blocks 4-9` downloads those blocks only and holds them. `head --blocks ADDR=1-3,ADDR=4-9` assembles the machines and refuses an incomplete group.
+- The word table stays on the head: traffic per token drops from 1.3 MB to 0.35 MB.
+- The head reserves memory for 8192 tokens of conversation instead of the model's maximum (`--ctx`): a block server now uses 1.3 times the size of its blocks.
+- Programs the engine starts stop with it, even when it is killed by force.
+
 ## v0.1.2
 
 - A block server that does not answer is now an error. llama.cpp was quietly loading its layers on the head, and the model was shown as split when it was not.

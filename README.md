@@ -63,43 +63,64 @@ Splitting costs little, and distance costs less than expected: about 40 % of the
 
 ## Use it on several machines
 
-On each machine that lends its memory:
+A model is cut into **blocks** of about one gigabyte. Every machine cuts it the same way, from the model's header alone:
 
 ```sh
-tor6ia-engine block --listen 0.0.0.0:50052
+tor6ia-engine plan --model gemma4:31b
 ```
 
-On the machine that holds the conversation, with the model file:
+```
+gemma4:31b: 18.67 GB, 60 layers, and 1102 MB outside the layers
+Plan read from the public registry, model not downloaded: 15.8 MB read, 0.08 % of the file.
+
+16 blocks: ...
+This machine has 17.2 GB of free memory: 11 of the 16 blocks advised.
+```
+
+On each machine that lends its memory, choose the blocks to hold. The machine downloads those blocks and nothing else, straight from the public registry:
 
 ```sh
-tor6ia-engine head --model gemma4:12b --blocks 192.168.1.20:50052,192.168.1.21:50052
+tor6ia-engine block --model gemma4:31b --blocks 4-9 --listen 0.0.0.0:50052
 ```
 
-The head prints the blocks, then serves an OpenAI-compatible API on `http://127.0.0.1:8090/v1`. A machine with more free memory receives more layers. Each block server keeps the layers it received on disk, so the next start loads them locally.
+It prints what to give to the head, like `192.168.1.20:50052=4-9`. On the machine that holds the conversation, which needs the whole model file on its disk:
 
-**On a Mac.** The demo and block servers are tested on the processor: add `--device CPU`. On GitHub's virtual Macs the graphics card stops a block server with "unsupported op"; a real Mac's graphics card has not been tested yet.
+```sh
+tor6ia-engine head --model gemma4:31b --blocks 192.168.1.20:50052=1-3,192.168.1.21:50052=4-9,192.168.1.22:50052=10-16
+```
 
-**Only between machines you trust.** A block server has no login and no encryption: any machine that can reach its port can run computations inside it. Use a private network or a VPN. This is why the engine is not yet open to strangers on the Tor6IA network.
+The head places each layer on the machine that announced it, refuses a group that does not cover the whole model and says which blocks are missing, then serves an OpenAI-compatible API on `http://127.0.0.1:8090/v1`.
+
+**Block servers are locked in.** A block server obeys another machine's computing orders. It runs in a lock where it cannot read your files, connect anywhere or start another program: an AppContainer on Windows, Landlock and seccomp on Linux, a sandbox profile on macOS. `tor6ia-engine jail-test` shows it on your machine. `--unlocked` removes the lock.
+
+**Still between machines you trust.** A block server has no login and no encryption yet: any machine that can reach its port can give it work, and sees what passes through. Use a private network or a VPN.
+
+**On a Mac**, block servers are tested on the processor: add `--device CPU`. A real Mac's graphics card has not been tested.
 
 ## Where it stands
 
-Built and tested:
+Built and tested, on Windows, Linux and macOS at every release:
 
-- A model split across block servers, with the placement of every layer shown.
-- One command to try it. Every release runs the demo on clean Windows, Linux and macOS machines (macOS on the processor).
-- The cost of network delay, measured.
+- A model split across block servers, each one locked in.
+- Blocks: the same cut on every machine, the advice for this machine, the download of chosen blocks only.
+- A head that assembles the machines that announced their blocks.
+- Plugged into Tor6IA since its version 0.2.0.
 
-Plugged into Tor6IA since its version 0.2.0: a node shares a model split across machines its owner trusts, and its interface shows the blocks.
+Measured on one laptop with no graphics card, Gemma 4 12B:
+
+| What | Result |
+|---|---|
+| Speed, three locked-in block servers | 3.2 tokens per second |
+| Memory of a block server | 1.3 times the size of its blocks |
+| Sent by the head when the blocks are already downloaded | 15 % of the model, instead of all of it |
+| Traffic per token, two to eight machines | 350 to 690 KB |
 
 Not built yet. The detailed plan, task by task, is in [ROADMAP.md](ROADMAP.md) (in French) and is updated as the work advances. In short:
 
 1. **Relay.** Home machines cannot reach each other directly. The Tor6IA coordinator will carry the traffic between head and blocks.
 2. **Several machines per block.** When one leaves, the next one that holds the same block takes over. Today a block server that stops ends the answer.
-3. **Blocks shown in Tor6IA.** How many blocks your machine holds, how many are covered, and how many machines a model is still waiting for.
+3. **Groups formed by the network**, with the blocks chosen in the Tor6IA interface.
 4. **Payment per block.** Each machine paid for the share of the model it computes.
-5. **Sandbox.** Run block servers safely for strangers, which the public network needs.
-
-Known limit: when the engine itself is killed by force, the model it started keeps running and keeps its memory. Stopping it normally, or stopping the program that drives it, cleans everything.
 
 ## How it works
 

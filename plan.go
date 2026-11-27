@@ -66,25 +66,40 @@ func runPlan(args []string) error {
 	if err != nil {
 		return err
 	}
-	sizes := make([]int64, plan.Layers)
-	for i := range sizes {
-		sizes[i] = plan.LayerSize(i)
-	}
+	blocks := plan.Blocks()
+	advised := advise(blocks, freeMemory())
 	if *asJSON {
-		return json.NewEncoder(os.Stdout).Encode(map[string]any{
-			"model": *model, "size": plan.Size, "header_read": plan.HeaderSize, "layers": sizes, "outside_layers": plan.LayerSize(-1)})
+		type block struct {
+			First int   `json:"first_layer"`
+			Last  int   `json:"last_layer"`
+			Size  int64 `json:"size"`
+		}
+		out := struct {
+			Model   string  `json:"model"`
+			Size    int64   `json:"size"`
+			Read    int64   `json:"header_read"`
+			Layers  int     `json:"layers"`
+			Outside int64   `json:"outside_layers"`
+			Blocks  []block `json:"blocks"`
+			Free    int64   `json:"free_memory"`
+			Advised int     `json:"advised_blocks"`
+		}{*model, plan.Size, plan.HeaderSize, plan.Layers, plan.LayerSize(-1), nil, freeMemory(), advised}
+		for _, b := range blocks {
+			out.Blocks = append(out.Blocks, block{b.First, b.Last, b.Size})
+		}
+		return json.NewEncoder(os.Stdout).Encode(out)
 	}
 	where := "read from this disk"
 	if !src.Local {
 		where = "read from the public registry, model not downloaded"
 	}
-	lo, hi := sizes[0], sizes[0]
-	for _, s := range sizes {
-		lo, hi = min(lo, s), max(hi, s)
+	fmt.Printf("%s: %.2f GB, %d layers, and %d MB outside the layers\n", *model, float64(plan.Size)/1e9, plan.Layers, plan.LayerSize(-1)>>20)
+	fmt.Printf("Plan %s: %.1f MB read, %.2f %% of the file.\n\n", where, float64(plan.HeaderSize)/1e6, 100*float64(plan.HeaderSize)/float64(plan.Size))
+	fmt.Printf("%d blocks:\n", len(blocks))
+	for i, b := range blocks {
+		fmt.Printf("  block %-3d layers %2d to %-3d %5d MB\n", i+1, b.First, b.Last, b.Size>>20)
 	}
-	fmt.Printf("%s: %.2f GB, %d layers of %d to %d MB, and %d MB outside the layers\n",
-		*model, float64(plan.Size)/1e9, plan.Layers, lo>>20, hi>>20, plan.LayerSize(-1)>>20)
-	fmt.Printf("Plan %s: %.1f MB read, %.2f %% of the file.\n", where, float64(plan.HeaderSize)/1e6, 100*float64(plan.HeaderSize)/float64(plan.Size))
+	fmt.Printf("\nThis machine has %.1f GB of free memory: %d of the %d blocks advised.\n", float64(freeMemory())/(1<<30), advised, len(blocks))
 	return nil
 }
 
@@ -154,6 +169,7 @@ func runFetch(args []string) error {
 	fs := flag.NewFlagSet("fetch", flag.ExitOnError)
 	model := fs.String("model", "", "model name, or a GGUF file")
 	layers := fs.String("layers", "all", "layers to fetch, like 3-5")
+	blockList := fs.String("blocks", "", "blocks to fetch, like 3-5 (see the plan command), instead of layers")
 	remote := fs.Bool("remote", false, "fetch from the public registry even when the model is on this disk")
 	outside := fs.Bool("outside", false, "also fetch what belongs to no layer: needed by the machine that holds the last layers")
 	fs.Parse(args)
@@ -170,6 +186,13 @@ func runFetch(args []string) error {
 		return err
 	}
 	first, last, err := parseLayers(*layers, plan.Layers)
+	if *blockList != "" {
+		blocks := plan.Blocks()
+		var a, b int
+		if a, b, err = blockRange(*blockList, len(blocks)); err == nil {
+			first, last = blocks[a-1].First, blocks[b-1].Last
+		}
+	}
 	if err != nil {
 		return err
 	}

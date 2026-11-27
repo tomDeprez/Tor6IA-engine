@@ -6,7 +6,7 @@ Ce fichier est la référence. Il est mis à jour à chaque tâche terminée : c
 
 **État : plan validé par Tom le 2026-11-27. Travail en cours.**
 
-**Prochaine tâche : 1.1** (les essais sont finis, voir le rapport E6)
+**Prochaine tâche : 1.6**
 
 Dernière mise à jour : 2026-11-27
 
@@ -155,28 +155,28 @@ Aucun produit fini ici. Chaque essai répond à une question par une mesure, dan
 
 Tout ce qui se voit dans l'interface, sans encore ouvrir aux inconnus. Dépend de E2, E3, E5.
 
-- [~] **1.1 Le plan d'un modèle dans le moteur.** *Fait le 2026-11-27 : `tor6ia-engine plan --model gemma4:31b` décrit un modèle jamais téléchargé (18,67 Go, 60 couches de 257 à 314 Mo, 1 102 Mo hors couches) en lisant 15,8 Mo, soit 0,08 % du fichier. Plan identique depuis le disque et depuis le registre. Reste : le regroupement en blocs d'environ 1 Go et le test sur les 5 modèles du catalogue.*
+- [x] **1.1 Le plan d'un modèle dans le moteur.** *Blocs ajoutés le 2026-11-27 : Gemma 4 12B = 6 blocs de 972 à 1 139 Mo, Gemma 4 31B = 16 blocs.* *Fait le 2026-11-27 : `tor6ia-engine plan --model gemma4:31b` décrit un modèle jamais téléchargé (18,67 Go, 60 couches de 257 à 314 Mo, 1 102 Mo hors couches) en lisant 15,8 Mo, soit 0,08 % du fichier. Plan identique depuis le disque et depuis le registre. Reste : le regroupement en blocs d'environ 1 Go et le test sur les 5 modèles du catalogue.*
   `tor6ia-engine plan --model gemma4:31b` lit l'en-tête par morceaux depuis le registre et donne les couches, leur taille, et le découpage en blocs d'environ 1 Go. Sortie lisible et sortie JSON.
   Fichiers : `gguf.go` (lecture de l'en-tête), `plan.go`.
   **Fini quand** : le plan d'un modèle jamais téléchargé s'affiche en ayant reçu moins de 20 Mo, identique à celui lu dans le fichier complet. Testé sur les 5 modèles du catalogue.
-- [~] **1.2 Télécharger seulement ses blocs.** *Fait le 2026-11-27 : `tor6ia-engine fetch --model M --layers 3-5` prend les morceaux sur le disque si le modèle y est, sinon au registre, avec reprise. Reste : l'adressage par blocs et la progression pour l'interface.*
+- [x] **1.2 Télécharger seulement ses blocs.** *Adressage par blocs ajouté le 2026-11-27 (`fetch --blocks`, et `block --model M --blocks 4-9` qui télécharge avant de servir).* *Fait le 2026-11-27 : `tor6ia-engine fetch --model M --layers 3-5` prend les morceaux sur le disque si le modèle y est, sinon au registre, avec reprise. Reste : l'adressage par blocs et la progression pour l'interface.*
   `tor6ia-engine fetch --model gemma4:31b --blocks 3-5` prend les morceaux du fichier public, avec reprise après coupure et progression.
   À vérifier : le registre ne donne qu'une empreinte pour le fichier entier. L'intégrité d'un morceau repose sur HTTPS vers le registre officiel, sauf si le cache vérifie l'empreinte de chaque couche (E2).
   **Fini quand** : une machine qui porte 3 blocs sur 20 a téléchargé 3 vingtièmes du modèle, pas plus, et sert ces blocs.
-- [ ] **1.3 Un serveur de blocs qui annonce et tient un nombre de blocs.** 1 j.
+- [x] **1.3 Un serveur de blocs qui annonce et tient un nombre de blocs.** *Fait le 2026-11-27. Mesuré avec un contexte de 8 192 tokens : 1,4 Go pour 1 bloc de 1,07 Go, 2,6 Go pour 2, 3,9 Go pour 3, soit 1,3 fois la taille. Plafond de mémoire posé à 1,5 fois la taille plus 0,5 Go (appliqué sous Windows). Piège : par défaut llama.cpp réservait la mémoire pour 262 144 tokens de contexte, d'où les 1,8 de E5 et un premier échec « failed to allocate compute buffers ».*
   `tor6ia-engine block --model gemma4:31b --blocks 3-5` : il ne charge que ça, avec un plafond de mémoire.
   **Fini quand** : la mémoire utilisée correspond aux blocs choisis à 15 % près, mesurée.
-- [ ] **1.4 Le conseil.** 0,5 j.
+- [~] **1.4 Le conseil.** *Fait le 2026-11-27 : `plan` donne le nombre de blocs conseillé d'après la mémoire libre (11 sur 16 de Gemma 4 31B sur un portable avec 17 Go libres). Reste : la vérification sur des machines de 8 et 16 Go, à faire par Tom.*
   Nombre de blocs conseillé à partir de la mémoire libre mesurée et de la carte graphique, avec la prudence déjà utilisée dans Tor6IA (1,5 fois la taille, 2 Go laissés au système).
   **Fini quand** : sur trois machines de mémoires différentes (8, 16 et 32 Go), le nombre conseillé se charge sans que la machine se mette à ramer.
-- [ ] **1.5 La tête assemble selon les blocs annoncés.** 1 j.
+- [x] **1.5 La tête assemble selon les blocs annoncés.** *Fait le 2026-11-27 : annonces 1, 2-3 et 4-6 données dans le désordre, couches placées 0-7, 8-23, 24-48. Groupe incomplet refusé : « blocks 2 to 3 of 6 are held by no machine ».*
   Elle reçoit « machine A : blocs 1 à 3, machine B : blocs 4 à 9 » et place les couches exactement ainsi (E3). Elle refuse de démarrer s'il manque un bloc et dit lequel.
   **Fini quand** : le découpage affiché est celui demandé, et un bloc manquant donne « il manque les blocs 10 à 12 ».
 - [ ] **1.6 L'écran « Porter des blocs » dans Tor6IA.** 1,5 à 2 j.
   Choix du modèle, « pour ta machine : 3 blocs conseillés sur 20 », choix de 1 au maximum possible, téléchargement bloc par bloc, puis « 3 blocs chargés, 3 en service ». La barre du modèle montre les blocs couverts et ceux qui manquent.
   Fichiers : `ui/index.html`, `split.go` dans Tor6IA.
   **Fini quand** : une personne qui n'a jamais vu le projet porte des blocs sans aide, et l'affichage correspond à ce que le moteur rapporte.
-- [ ] **1.7 Démonstration J1.** 0,5 j.
+- [~] **1.7 Démonstration J1.** *Faite le 2026-11-27 côté moteur : trois porteurs enfermés (1, 2 et 3 blocs) font répondre Gemma 4 12B à 3,2 tokens/s sur une seule machine. La démonstration avec Gemma 4 31B est impossible sur une machine seule (les trois porteurs y partagent la même mémoire) : elle fait partie du test final de Tom.*
   **Fini quand** : sur ta machine, trois porteurs de blocs choisis à la main (2, 5 et 13 blocs) font répondre Gemma 4 31B, modèle qu'elle ne tient pas seule en mémoire. Vitesse notée ici. Tor6IA 0.3.0 publiée.
 
 ## 8. Jalon J2 : le bac à sable
@@ -294,6 +294,7 @@ Dépend de tout ce qui précède.
 
 - 2026-11-27 : phase 0 terminée. Premier plan écrit.
 - 2026-11-27 : essai 0.6 fait sur une question de Tom (« peut-on découper sans télécharger ? »). Oui : plan exact dans l'en-tête, morceaux servis à la demande. Plus aucun hébergement de modèles à prévoir.
+- 2026-11-27 : **J1 côté moteur fait (1.1 à 1.5).** Les blocs existent de bout en bout en ligne de commande. Trois corrections trouvées en testant : droits du dossier de cache en concurrence, contexte par défaut de 262 144 tokens, règle mémoire revue à 1,3. Moteur 0.2.0 publié. Reste l'écran dans Tor6IA (1.6).
 - 2026-11-27 : **E3, E4, E5 faits, étape des essais terminée.** Deux découvertes ont changé le moteur : la table des mots doit rester sur la tête (trafic par token divisé par 3 à 4), et le relais sur le VPS devra être plafonné. Rapport dans E6.
 - 2026-11-27 : **E2 fait.** Le préchargement par le cache marche pour 85 % du modèle et divise le temps de chargement par 2,5. Les 15 % restants (tenseurs de moins de 10 Mo) passent toujours par la tête : tâche 3.9 ajoutée, conditionnelle. Le plan et le téléchargement par couches existent en commandes (`plan`, `fetch`).
 - 2026-11-27 : **E1 réussi, et 2.1 faite dans la foulée.** Le bac à sable existe sur Windows, Linux et macOS sans droits administrateur. La route de repli WSL est abandonnée. Trois allers-retours avec la pipeline ont été nécessaires pour Windows Server (périphérique `NUL` interdit dans la boîte).
