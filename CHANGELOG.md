@@ -8,6 +8,9 @@ Each `## vX.Y.Z` section becomes the notes of that release.
 - The memory of a block server is capped on Linux and macOS too, not only on Windows: past what its blocks need, it is stopped.
 - On macOS a block server now stops with the engine, even when the engine is killed by force.
 - `jail-test` also proves the memory cap, and that a block server does not outlive a killed engine.
+- A block server that stops is started again. `abuse-test` plays a hostile head: noise, absurd sizes, more memory than allowed, a connection cut in the middle. After each attempt the block server must serve again.
+- The block cache holds the blocks this machine holds and nothing else: blocks it held before are removed. Blocks already there are not read again at the next start. `clean` empties the cache, `clean --all` removes everything the engine installed.
+- The demo and a plain `block` no longer write to the cache.
 
 ## v0.2.2
 

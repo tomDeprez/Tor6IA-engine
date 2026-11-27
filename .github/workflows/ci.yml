@@ -41,6 +41,11 @@ jobs:
         run: |
           go build -o "engine$(go env GOEXE)" .
           "./engine$(go env GOEXE)" jail-test
+      - name: A hostile head cannot put a block server out of service
+        env:
+          DEVICE: ${{ runner.os == 'macOS' && '--device CPU' || '' }}
+        run: |
+          "./engine$(go env GOEXE)" abuse-test $DEVICE
       - name: Split a model across three locked-in block servers
         env:
           # GitHub's macOS machines have a virtual graphics card on which a block server stops with

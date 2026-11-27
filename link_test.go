@@ -27,7 +27,7 @@ func TestLink(t *testing.T) {
 		}
 	}()
 	secret := []byte("0123456789abcdef")
-	front, err := serveLink("127.0.0.1:0", secret, inner.Addr().String())
+	front, err := serveLink("127.0.0.1:0", secret, func() string { return inner.Addr().String() })
 	if err != nil {
 		t.Fatal(err)
 	}

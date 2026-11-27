@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"strconv"
 	"strings"
 )
 
@@ -28,6 +27,7 @@ const usage = `tor6ia-engine: one model, several machines
   tor6ia-engine block --model M --blocks 4-9 [--listen ADDR]    hold some blocks of a model for a head
   tor6ia-engine head  --model M --blocks LINE,LINE              run a model across the machines that hold its blocks
                                                                 (a LINE is what "block" prints: address=blocks#secret)
+  tor6ia-engine clean [--all]                                   empty the block cache, or remove everything the engine installed
   tor6ia-engine version
 
 A model is a .gguf file, or the name of a model Ollama already downloaded.`
@@ -60,8 +60,15 @@ func main() {
 		err = runPlan(os.Args[2:])
 	case "fetch":
 		err = runFetch(os.Args[2:])
+	case "clean":
+		err = runClean(os.Args[2:])
 	case "jail-test":
 		err = jailTest()
+	case "abuse-test":
+		fs := flag.NewFlagSet("abuse-test", flag.ExitOnError)
+		device := fs.String("device", "", deviceHelp)
+		fs.Parse(os.Args[2:])
+		err = abuseTest(*device)
 	case "jail-exec":
 		err = runJailExec(os.Args[2:])
 	case "bridge":
@@ -90,6 +97,7 @@ func runBlock(args []string) error {
 	blockList := fs.String("blocks", "", "blocks to hold, like 4-9 (see the plan command)")
 	asJSON := fs.Bool("json", false, "print progress and the ready line as JSON, for a program that drives the engine")
 	withStdin := fs.Bool("exit-with-stdin", false, "stop when standard input closes: the program that started the engine has gone")
+	shared := fs.Bool("shared-cache", false, "keep the blocks of other holders in the cache: for several holders on one machine")
 	fs.Parse(args)
 	dir, err := ensureLlama()
 	if err != nil {
@@ -118,7 +126,7 @@ func runBlock(args []string) error {
 			size += b.Size
 		}
 		shown := -1
-		_, err = fetchLayers(src, plan, blocks[first-1].First, blocks[last-1].Last, false, func(done, total int64) {
+		_, files, err := fetchLayers(src, plan, blocks[first-1].First, blocks[last-1].Last, false, func(done, total int64) {
 			if pct := int(100 * done / max(total, 1)); pct != shown {
 				shown = pct
 				if *asJSON {
@@ -135,16 +143,27 @@ func runBlock(args []string) error {
 		if !*asJSON {
 			fmt.Println()
 		}
+		// The cache holds the blocks this machine holds, and nothing it held before.
+		if !*shared {
+			if _, err := pruneCache(files); err != nil {
+				return err
+			}
+		}
 		memoryMB = memoryCap(size)
 		announce = fmt.Sprintf("=%d-%d", first, last)
 	}
 	// The block server listens on this machine only: it has no login. Other machines reach the
 	// engine, through a link that asks for the secret of the line printed below.
-	inner, err := freePort()
-	if err != nil {
-		return err
-	}
-	block, err := startBlock(dir, "127.0.0.1:"+strconv.Itoa(inner), *threads, *device, !*unlocked, memoryMB)
+	// A head can make it stop, with a wrong order or a size it cannot hold: it is started again.
+	block, err := keepBlock(func(addr string) (*jailProc, error) {
+		return startBlock(dir, addr, *threads, *device, !*unlocked, memoryMB, *model != "")
+	}, func(said string) {
+		if *asJSON {
+			json.NewEncoder(os.Stdout).Encode(map[string]any{"restarted": true, "because": said})
+		} else {
+			fmt.Printf("The block server stopped and was started again. Its last words:\n%s\n", said)
+		}
+	})
 	if err != nil {
 		return err
 	}
@@ -185,8 +204,8 @@ func runBlock(args []string) error {
 	}
 	select {
 	case <-stop:
-	case <-block.Done:
-		return fmt.Errorf("the block server stopped by itself\n%s", tailFile(block.Log, 12))
+	case err := <-block.Gone:
+		return err
 	}
 	return nil
 }

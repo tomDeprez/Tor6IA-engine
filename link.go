@@ -79,9 +79,9 @@ func linkConfig(mine ed25519.PrivateKey, peer ed25519.PublicKey) (*tls.Config, e
 	}, nil
 }
 
-// serveLink listens on listen and carries each link to the block server at inner. A stranger
-// fails the handshake: nothing it sends reaches the block server.
-func serveLink(listen string, secret []byte, inner string) (net.Listener, error) {
+// serveLink listens on listen and carries each link to the block server, which inner locates.
+// A stranger fails the handshake: nothing it sends reaches the block server.
+func serveLink(listen string, secret []byte, inner func() string) (net.Listener, error) {
 	cfg, err := linkConfig(linkKey(secret, "block"), linkKey(secret, "head").Public().(ed25519.PublicKey))
 	if err != nil {
 		return nil, err
@@ -103,7 +103,7 @@ func serveLink(listen string, secret []byte, inner string) (net.Listener, error)
 					return
 				}
 				c.SetDeadline(time.Time{})
-				in, err := net.DialTimeout("tcp", inner, 5*time.Second)
+				in, err := net.DialTimeout("tcp", inner(), 5*time.Second)
 				if err != nil {
 					c.Close()
 					return

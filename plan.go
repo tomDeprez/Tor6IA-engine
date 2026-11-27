@@ -103,15 +103,68 @@ func runPlan(args []string) error {
 	return nil
 }
 
-// fetchLayers puts the large tensors of some layers in the block cache, where a block server
-// started by this engine finds them. It returns how many bytes it had to read from the source.
-// outside adds the tensors that belong to no layer: llama.cpp places them with the last layers,
-// so the machine that holds the end of the model needs them too.
-func fetchLayers(src *source, plan *Plan, first, last int, outside bool, progress func(done, total int64)) (int64, error) {
+// The cache names a file by a hash of its content, which is what a block server asks for. The
+// index adds which tensor of which model each file is: a tensor fetched once is not read again
+// after a restart, and the files of blocks this machine no longer holds can be removed.
+func readIndex(dir string) map[string]string {
+	index := map[string]string{}
+	if raw, err := os.ReadFile(filepath.Join(dir, "index.json")); err == nil {
+		json.Unmarshal(raw, &index)
+	}
+	return index
+}
+
+func writeIndex(dir string, index map[string]string) error {
+	raw, _ := json.Marshal(index)
+	return os.WriteFile(filepath.Join(dir, "index.json"), raw, 0o644)
+}
+
+// pruneCache removes from the block cache every file that is not in keep, and returns the bytes
+// freed. With keep empty it removes everything.
+func pruneCache(keep []string) (int64, error) {
 	dir, err := blockCache()
 	if err != nil {
 		return 0, err
 	}
+	kept := map[string]bool{"index.json": true}
+	for _, name := range keep {
+		kept[name] = true
+	}
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, err
+	}
+	var freed int64
+	for _, f := range files {
+		if kept[f.Name()] {
+			continue
+		}
+		if info, err := f.Info(); err == nil && os.Remove(filepath.Join(dir, f.Name())) == nil {
+			freed += info.Size()
+		}
+	}
+	index := readIndex(dir)
+	for key, name := range index {
+		if !kept[name] {
+			delete(index, key)
+		}
+	}
+	return freed, writeIndex(dir, index)
+}
+
+// fetchLayers puts the large tensors of some layers in the block cache, where a block server
+// started by this engine finds them. It returns how many bytes it had to read from the source,
+// and the cache files of those layers. outside adds the tensors that belong to no layer:
+// llama.cpp places them with the last layers, so the machine that holds the end of the model
+// needs them too.
+func fetchLayers(src *source, plan *Plan, first, last int, outside bool, progress func(done, total int64)) (int64, []string, error) {
+	dir, err := blockCache()
+	if err != nil {
+		return 0, nil, err
+	}
+	index := readIndex(dir)
+	key := func(t Tensor) string { return fmt.Sprintf("%s %d %d %d", src.Name, src.Size, t.Offset, t.Size) }
+	var files []string
 	var todo []Tensor
 	var total int64
 	for _, t := range plan.Tensors {
@@ -121,7 +174,7 @@ func fetchLayers(src *source, plan *Plan, first, last int, outside bool, progres
 			total += t.Size
 		}
 	}
-	var done atomic.Int64
+	var done, read atomic.Int64
 	var firstErr error
 	var mu sync.Mutex
 	work := make(chan Tensor)
@@ -146,23 +199,70 @@ func fetchLayers(src *source, plan *Plan, first, last int, outside bool, progres
 				if err := os.WriteFile(name+".part", buf, 0o644); err == nil {
 					err = os.Rename(name+".part", name)
 				}
-				if err != nil {
-					mu.Lock()
-					if firstErr == nil {
-						firstErr = err
-					}
-					mu.Unlock()
+				mu.Lock()
+				if err != nil && firstErr == nil {
+					firstErr = err
 				}
+				if err == nil {
+					index[key(t)] = filepath.Base(name)
+					files = append(files, filepath.Base(name))
+				}
+				mu.Unlock()
+				read.Add(t.Size)
 				progress(done.Add(t.Size), total)
 			}
 		}()
 	}
 	for _, t := range todo {
+		// Already here from an earlier start: nothing to read.
+		if name, ok := index[key(t)]; ok {
+			if st, err := os.Stat(filepath.Join(dir, name)); err == nil && st.Size() == t.Size {
+				mu.Lock()
+				files = append(files, name)
+				mu.Unlock()
+				progress(done.Add(t.Size), total)
+				continue
+			}
+		}
 		work <- t
 	}
 	close(work)
 	wg.Wait()
-	return done.Load(), firstErr
+	mu.Lock()
+	defer mu.Unlock()
+	if err := writeIndex(dir, index); err != nil && firstErr == nil {
+		firstErr = err
+	}
+	return read.Load(), files, firstErr
+}
+
+// runClean removes what the engine keeps on this machine: the block cache, or with --all
+// everything, llama.cpp and the secret of the lines included.
+func runClean(args []string) error {
+	fs := flag.NewFlagSet("clean", flag.ExitOnError)
+	all := fs.Bool("all", false, "remove everything the engine put on this machine, not only the blocks")
+	fs.Parse(args)
+	freed, err := pruneCache(nil)
+	if err != nil {
+		return err
+	}
+	if *all {
+		home, err := homeDir()
+		if err != nil {
+			return err
+		}
+		// Only what the engine made: the folder may be one the user chose, with other things in it.
+		for _, name := range []string{"llama.cpp", "jail", "blocks", "link.secret"} {
+			if err := os.RemoveAll(filepath.Join(home, name)); err != nil {
+				return err
+			}
+		}
+		os.Remove(home) // when nothing else is in it
+		fmt.Println("Removed everything the engine kept in", home)
+		return nil
+	}
+	fmt.Printf("Block cache emptied: %d MB freed.\n", freed>>20)
+	return nil
 }
 
 func runFetch(args []string) error {
@@ -197,7 +297,7 @@ func runFetch(args []string) error {
 		return err
 	}
 	start, shown := time.Now(), time.Now()
-	n, err := fetchLayers(src, plan, first, last, *outside, func(done, total int64) {
+	n, _, err := fetchLayers(src, plan, first, last, *outside, func(done, total int64) {
 		if time.Since(shown) > time.Second {
 			shown = time.Now()
 			fmt.Printf("\r%d %%", 100*done/max(total, 1))

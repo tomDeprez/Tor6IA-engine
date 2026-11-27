@@ -40,15 +40,19 @@ func freePort() (int, error) {
 // locked runs it inside the lock described in jail.go, which is the only safe way to serve
 // machines that are not trusted. Unlocked, it has every right of the user who started it.
 // memoryMB is the most memory it may use, 0 for no limit (the limit is enforced on Windows).
-func startBlock(dir, listen string, threads int, device string, locked bool, memoryMB int) (*jailProc, error) {
+func startBlock(dir, listen string, threads int, device string, locked bool, memoryMB int, cache bool) (*jailProc, error) {
 	host, portText, err := net.SplitHostPort(listen)
 	port, perr := strconv.Atoi(portText)
 	if err != nil || perr != nil {
 		return nil, fmt.Errorf("bad address %q: want host:port", listen)
 	}
-	// -c keeps the layers it received on disk: the next start loads them locally instead of over the network.
+	// -c makes it load from the block cache the layers it finds there, instead of over the network.
+	// It is for a machine that fetched its blocks first: without them, the cache would only grow.
 	args := func(host string, port int) []string {
-		a := []string{"-H", host, "-p", strconv.Itoa(port), "-t", strconv.Itoa(threads), "-c"}
+		a := []string{"-H", host, "-p", strconv.Itoa(port), "-t", strconv.Itoa(threads)}
+		if cache {
+			a = append(a, "-c")
+		}
 		if device != "" {
 			a = append(a, "-d", device)
 		}
@@ -237,7 +241,7 @@ func demo(model string, machines int, prompt, device string, locked bool) error 
 		if err != nil {
 			return err
 		}
-		block, err := startBlock(dir, "127.0.0.1:"+strconv.Itoa(port), threads, device, locked, memoryMB)
+		block, err := startBlock(dir, "127.0.0.1:"+strconv.Itoa(port), threads, device, locked, memoryMB, false)
 		if err != nil {
 			return err
 		}
