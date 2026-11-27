@@ -89,6 +89,8 @@ Built and tested:
 - One command to try it. Every release runs the demo on clean Windows, Linux and macOS machines (macOS on the processor).
 - The cost of network delay, measured.
 
+Plugged into Tor6IA since its version 0.2.0: a node shares a model split across machines its owner trusts, and its interface shows the blocks.
+
 Not built yet, in the order planned:
 
 1. **Relay.** Home machines cannot reach each other directly. The Tor6IA coordinator will carry the traffic between head and blocks.
@@ -96,6 +98,8 @@ Not built yet, in the order planned:
 3. **Blocks shown in Tor6IA.** How many blocks your machine holds, how many are covered, and how many machines a model is still waiting for.
 4. **Payment per block.** Each machine paid for the share of the model it computes.
 5. **Sandbox.** Run block servers safely for strangers, which the public network needs.
+
+Known limit: when the engine itself is killed by force, the model it started keeps running and keeps its memory. Stopping it normally, or stopping the program that drives it, cleans everything.
 
 ## How it works
 

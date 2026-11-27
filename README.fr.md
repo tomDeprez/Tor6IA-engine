@@ -78,6 +78,8 @@ Construit et testé :
 - Une commande pour l'essayer. Chaque version lance la démo sur des machines Windows, Linux et macOS vierges (macOS sur le processeur).
 - Le coût du délai réseau, mesuré.
 
+Branché dans Tor6IA depuis sa version 0.2.0 : un nœud partage un modèle réparti sur des machines de confiance, et son interface affiche les blocs.
+
 Pas encore construit, dans l'ordre prévu :
 
 1. **Relais.** Les machines derrière une box ne se joignent pas directement. Le coordinateur Tor6IA portera le trafic entre la tête et les blocs.
@@ -85,6 +87,8 @@ Pas encore construit, dans l'ordre prévu :
 3. **Les blocs affichés dans Tor6IA.** Combien de blocs porte ta machine, combien sont couverts, et combien de machines un modèle attend encore.
 4. **Paiement par bloc.** Chaque machine payée pour la part du modèle qu'elle calcule.
 5. **Bac à sable.** Faire tourner des serveurs de blocs sans risque pour des inconnus, ce que le réseau public exige.
+
+Limite connue : quand le moteur lui-même est tué de force, le modèle qu'il a lancé continue de tourner et garde sa mémoire. L'arrêter normalement, ou arrêter le programme qui le pilote, nettoie tout.
 
 ## Licence
 
