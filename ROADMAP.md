@@ -6,7 +6,7 @@ Ce fichier est la référence. Il est mis à jour à chaque tâche terminée : c
 
 **État : plan validé par Tom le 2026-11-27. Travail en cours.**
 
-**Prochaine tâche : 1.6**
+**Prochaine tâche : 3.1**
 
 Dernière mise à jour : 2026-11-27
 
@@ -166,17 +166,17 @@ Tout ce qui se voit dans l'interface, sans encore ouvrir aux inconnus. Dépend d
 - [x] **1.3 Un serveur de blocs qui annonce et tient un nombre de blocs.** *Fait le 2026-11-27. Mesuré avec un contexte de 8 192 tokens : 1,4 Go pour 1 bloc de 1,07 Go, 2,6 Go pour 2, 3,9 Go pour 3, soit 1,3 fois la taille. Plafond de mémoire posé à 1,5 fois la taille plus 0,5 Go (appliqué sous Windows). Piège : par défaut llama.cpp réservait la mémoire pour 262 144 tokens de contexte, d'où les 1,8 de E5 et un premier échec « failed to allocate compute buffers ».*
   `tor6ia-engine block --model gemma4:31b --blocks 3-5` : il ne charge que ça, avec un plafond de mémoire.
   **Fini quand** : la mémoire utilisée correspond aux blocs choisis à 15 % près, mesurée.
-- [~] **1.4 Le conseil.** *Fait le 2026-11-27 : `plan` donne le nombre de blocs conseillé d'après la mémoire libre (11 sur 16 de Gemma 4 31B sur un portable avec 17 Go libres). Reste : la vérification sur des machines de 8 et 16 Go, à faire par Tom.*
+- [~] **1.4 Le conseil.** *Fait le 2026-11-27 : `plan` donne le nombre de blocs conseillé d'après la mémoire libre (11 sur 16 de Gemma 4 31B sur un portable avec 17 Go libres), et l'interface de Tor6IA l'affiche avec la taille à télécharger et la mémoire utilisée. Reste : la vérification sur des machines de 8 et 16 Go, à faire par Tom pendant son test.*
   Nombre de blocs conseillé à partir de la mémoire libre mesurée et de la carte graphique, avec la prudence déjà utilisée dans Tor6IA (1,5 fois la taille, 2 Go laissés au système).
   **Fini quand** : sur trois machines de mémoires différentes (8, 16 et 32 Go), le nombre conseillé se charge sans que la machine se mette à ramer.
 - [x] **1.5 La tête assemble selon les blocs annoncés.** *Fait le 2026-11-27 : annonces 1, 2-3 et 4-6 données dans le désordre, couches placées 0-7, 8-23, 24-48. Groupe incomplet refusé : « blocks 2 to 3 of 6 are held by no machine ».*
   Elle reçoit « machine A : blocs 1 à 3, machine B : blocs 4 à 9 » et place les couches exactement ainsi (E3). Elle refuse de démarrer s'il manque un bloc et dit lequel.
   **Fini quand** : le découpage affiché est celui demandé, et un bloc manquant donne « il manque les blocs 10 à 12 ».
-- [ ] **1.6 L'écran « Porter des blocs » dans Tor6IA.** 1,5 à 2 j.
+- [x] **1.6 L'écran « Porter des blocs » dans Tor6IA.** *Fait le 2026-11-27, Tor6IA 0.3.0. L'interface lit le plan sans rien télécharger (« 16 blocs dans ce modèle. Pour ta machine : 8 conseillés »), télécharge les blocs choisis avec une barre de progression, puis affiche « Gemma 4 12B : 2 blocs sur 6, blocs 2 à 3 : chargés et en service », une barre des blocs du modèle et la ligne à donner au groupe. Testé en vrai : blocs 2-3 portés par Tor6IA, deux autres porteurs, groupe formé par l'interface, réponse reçue ; nœud tué de force, aucun processus du moteur ne reste ; redémarrage, les blocs sont repris. Deux défauts trouvés et corrigés : l'adresse annoncée était celle d'une carte réseau morte (169.254.x.x), et la reprise au démarrage lançait un second serveur de blocs.*
   Choix du modèle, « pour ta machine : 3 blocs conseillés sur 20 », choix de 1 au maximum possible, téléchargement bloc par bloc, puis « 3 blocs chargés, 3 en service ». La barre du modèle montre les blocs couverts et ceux qui manquent.
   Fichiers : `ui/index.html`, `split.go` dans Tor6IA.
   **Fini quand** : une personne qui n'a jamais vu le projet porte des blocs sans aide, et l'affichage correspond à ce que le moteur rapporte.
-- [~] **1.7 Démonstration J1.** *Faite le 2026-11-27 côté moteur : trois porteurs enfermés (1, 2 et 3 blocs) font répondre Gemma 4 12B à 3,2 tokens/s sur une seule machine. La démonstration avec Gemma 4 31B est impossible sur une machine seule (les trois porteurs y partagent la même mémoire) : elle fait partie du test final de Tom.*
+- [~] **1.7 Démonstration J1.** *Faite le 2026-11-27 avec Gemma 4 12B : trois porteurs enfermés (1, 2 et 3 blocs) reliés par des liens chiffrés répondent à 3,3 tokens/s sur une seule machine, et le groupe se forme depuis l'interface de Tor6IA. Tor6IA 0.3.0 publiée. La démonstration avec Gemma 4 31B est impossible sur une machine seule (les trois porteurs y partagent la même mémoire) : elle fait partie du test final de Tom.*
   **Fini quand** : sur ta machine, trois porteurs de blocs choisis à la main (2, 5 et 13 blocs) font répondre Gemma 4 31B, modèle qu'elle ne tient pas seule en mémoire. Vitesse notée ici. Tor6IA 0.3.0 publiée.
 
 ## 8. Jalon J2 : le bac à sable
@@ -186,19 +186,19 @@ Le verrou de l'ouverture. Dépend de E1.
 - [x] **2.1 Le serveur de blocs enfermé, sur les trois systèmes.** *Fait le 2026-11-27 avec E1 : `tor6ia-engine block` et la démo enferment par défaut, `--unlocked` rend l'ancien comportement. Les évasions sont testées dans la pipeline sur les trois systèmes.*
   Avec la technique choisie en E1. Il ne voit que son dossier de blocs. Aucun autre fichier, aucun autre programme, aucune connexion sortante.
   **Fini quand** : les trois tentatives d'évasion de E1 échouent dans la pipeline, sur Windows, Linux et macOS.
-- [~] **2.2 Limites de ressources et arrêt garanti.** 0,5 j restant. *Fait le 2026-11-27 : les programmes lancés par le moteur s'arrêtent avec lui, même tué de force (job sous Windows, `PR_SET_PDEATHSIG` sous Linux). Reste : le plafond de mémoire branché sur les blocs choisis, l'équivalent sous macOS, et le test dans la pipeline.*
+- [x] **2.2 Limites de ressources et arrêt garanti.** *Fait le 2026-11-27, moteur 0.2.3. Mémoire plafonnée à 1,5 fois la taille des blocs portés plus 1 Go, sur les trois systèmes : limite du job sous Windows, `RLIMIT_DATA` sous Linux (mesuré dans WSL avec Llama 3.2 3B : 1 321 Mo utilisés pour un bloc de 757 Mo, limite 1 647 Mo), gardien sous macOS. Processeur : la moitié des cœurs. Le serveur de blocs s'arrête avec le moteur même tué de force, sur les trois systèmes (sous macOS par le même gardien). `jail-test` le prouve dans la pipeline : « use 1 GB of memory : refused » ou « stopped », « kill the engine by force : block server stopped with it ».*
   Plafond de mémoire et de processeur. Le serveur de blocs s'arrête avec le moteur, même tué de force (Job Object sous Windows, `PR_SET_PDEATHSIG` sous Linux).
   **Fini quand** : moteur tué de force, aucun de ses processus ne reste. Corrige la limite connue du README.
-- [ ] **2.3 Aucune écoute sur le réseau.** 0,5 j.
+- [x] **2.3 Aucune écoute sur le réseau.** *Fait le 2026-11-27, moteur 0.2.3. Le serveur de blocs n'écoute plus que sur 127.0.0.1. Les autres machines joignent le moteur par un lien TLS 1.3 où chaque côté prouve une clé issue du secret de la ligne (`192.168.1.20:50052=4-9#secret`). Vérifié : depuis l'adresse réseau les trois ports des serveurs de blocs sont fermés ; un inconnu qui envoie un ordre sur le port du lien n'obtient rien ; une tête avec un mauvais secret est refusée (« the other side does not hold the key of this group ») ; le groupe répond toujours, à la même vitesse (3,3 tokens/s avant et après). Le port du lien reste ouvert pour les connexions directes : il disparaît pour les machines qui passent par le relais (3.2).*
   Le serveur de blocs n'écoute que sur la machine elle-même. Le moteur parle au reste du monde et vérifie la clé de celui qui est en face.
   **Fini quand** : un balayage de ports depuis une autre machine ne trouve rien, et le groupe fonctionne toujours.
-- [ ] **2.4 Essais d'abus.** 0,5 à 1 j.
+- [x] **2.4 Essais d'abus.** *Fait le 2026-11-27, moteur 0.2.3 : `tor6ia-engine abuse-test` joue une tête hostile contre un serveur de blocs enfermé avec 512 Mo. Neuf attaques : bruit, tailles absurdes, ordre inconnu, calcul fait de bruit, calcul plus gros que sa mémoire, bloc de mémoire géant, plus de mémoire que permis, tenseur coupé au milieu. Après chacune le serveur doit répondre à nouveau. Windows et Linux : tout refusé, le serveur ne tombe pas. macOS : une attaque le fait arrêter par le plafond de mémoire, il est relancé. Le moteur relance un serveur de blocs qui s'arrête et le signale ; au-delà de 20 arrêts par minute il abandonne. Dans la pipeline sur les trois systèmes.*
   Ordres malformés, tailles absurdes, demande de mémoire géante, connexion coupée au milieu.
   **Fini quand** : le serveur de blocs plante ou refuse, le bac à sable tient, le moteur le signale et le relance. Ces essais tournent dans la pipeline.
-- [ ] **2.5 Le cache de blocs sous contrôle.** 0,5 j.
+- [x] **2.5 Le cache de blocs sous contrôle.** *Fait le 2026-11-27, moteur 0.2.3. Au démarrage d'un porteur, tout ce qui n'est pas ses blocs est supprimé du cache. Dix changements de modèle et de blocs d'affilée : le cache n'a jamais dépassé la taille des blocs portés (par exemple 2 625 Mo pour 3 174 Mo de blocs). Un index évite de relire des blocs déjà là : redémarrage prêt en 1 s. `clean` vide le cache, `clean --all` retire tout ce que le moteur a installé ; Tor6IA les appelle quand on arrête de porter et à la désinstallation. La démo n'écrit plus dans le cache. L'ancien cache orphelin de 22 Go a été supprimé de la machine d'essai.*
   Taille limitée, blocs inutilisés supprimés, tout effacé quand on arrête de porter un modèle ou qu'on désinstalle. Aujourd'hui il grossit sans limite (22 Go après une journée d'essais).
   **Fini quand** : le dossier ne dépasse jamais la taille des blocs portés, vérifié après dix changements de modèle.
-- [ ] **2.6 Perte de vitesse mesurée.** 0,5 j.
+- [x] **2.6 Perte de vitesse mesurée.** *Fait le 2026-11-27, trois mesures par cas. Windows, Gemma 4 12B sur 3 serveurs de blocs : enfermé 3,0 / 2,5 / 3,2 tokens/s, libre 2,8 / 3,5 / 3,0, soit 6 % d'écart, dans le bruit de la mesure. Linux (WSL), Llama 3.2 3B sur 2 serveurs : enfermé 14,2 / 14,0 / 14,4, libre 14,5 / 14,5 / 14,2, soit 1,4 %. Les 32 % mesurés plus tôt sous Windows venaient de la table des mots envoyée à chaque token, corrigée depuis (E4). macOS : pas de machine pour une vraie mesure ; à relever pendant le test de Tom. Le choix de E1 est confirmé.*
   **Fini quand** : tokens par seconde avec et sans bac à sable, sur les trois systèmes, écrits ici. Plus de 30 % de perte rouvre le choix de E1.
 
 ## 9. Jalon J3 : le réseau forme les groupes
@@ -292,6 +292,7 @@ Dépend de tout ce qui précède.
 
 ## 15. Journal
 
+- 2026-11-27 : **J1 et J2 terminés. Tor6IA 0.3.0 et moteur 0.2.3 publiés, pipelines vertes sur Windows, Linux et macOS.** Chacun peut porter des blocs depuis l'interface. Le serveur de blocs est enfermé, plafonné en mémoire, invisible du réseau, relancé s'il tombe, et son cache ne dépasse pas ses blocs. Les groupes sont encore formés à la main : c'est J3 qui les fait former par le réseau. Décision prise en route : la ligne d'un porteur porte un secret, et les deux clés du lien en sont tirées, ce qui évite d'échanger des clés à la main.
 - 2026-11-27 : phase 0 terminée. Premier plan écrit.
 - 2026-11-27 : essai 0.6 fait sur une question de Tom (« peut-on découper sans télécharger ? »). Oui : plan exact dans l'en-tête, morceaux servis à la demande. Plus aucun hébergement de modèles à prévoir.
 - 2026-11-27 : **J1 côté moteur fait (1.1 à 1.5).** Les blocs existent de bout en bout en ligne de commande. Trois corrections trouvées en testant : droits du dossier de cache en concurrence, contexte par défaut de 262 144 tokens, règle mémoire revue à 1,3. Moteur 0.2.0 publié. Reste l'écran dans Tor6IA (1.6).

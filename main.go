@@ -27,6 +27,7 @@ const usage = `tor6ia-engine: one model, several machines
   tor6ia-engine block --model M --blocks 4-9 [--listen ADDR]    hold some blocks of a model for a head
   tor6ia-engine head  --model M --blocks LINE,LINE              run a model across the machines that hold its blocks
                                                                 (a LINE is what "block" prints: address=blocks#secret)
+  tor6ia-engine relay [--listen ADDR]                           join machines that cannot reach each other (for a server)
   tor6ia-engine clean [--all]                                   empty the block cache, or remove everything the engine installed
   tor6ia-engine version
 
@@ -62,6 +63,8 @@ func main() {
 		err = runFetch(os.Args[2:])
 	case "clean":
 		err = runClean(os.Args[2:])
+	case "relay":
+		err = runRelay(os.Args[2:])
 	case "jail-test":
 		err = jailTest()
 	case "abuse-test":
@@ -98,6 +101,7 @@ func runBlock(args []string) error {
 	asJSON := fs.Bool("json", false, "print progress and the ready line as JSON, for a program that drives the engine")
 	withStdin := fs.Bool("exit-with-stdin", false, "stop when standard input closes: the program that started the engine has gone")
 	shared := fs.Bool("shared-cache", false, "keep the blocks of other holders in the cache: for several holders on one machine")
+	relay := fs.String("relay", "", "host:port of a relay, for heads that cannot reach this machine directly")
 	fs.Parse(args)
 	dir, err := ensureLlama()
 	if err != nil {
@@ -172,7 +176,11 @@ func runBlock(args []string) error {
 	if err != nil {
 		return err
 	}
-	front, err := serveLink(*listen, secret, block.Addr)
+	link, err := newBlockLink(secret, block.Addr)
+	if err != nil {
+		return err
+	}
+	front, err := link.listen(*listen)
 	if err != nil {
 		return err
 	}
@@ -180,6 +188,13 @@ func runBlock(args []string) error {
 	addr, err := reachable(front.Addr().String())
 	if err != nil {
 		addr = front.Addr().String()
+	}
+	// With a relay, a head that cannot reach this machine directly still finds it.
+	if *relay != "" {
+		left := make(chan struct{})
+		defer close(left)
+		go link.holdAtRelay(*relay, left)
+		addr += "|" + relayPrefix + *relay
 	}
 	line := addr + announce + "#" + hex.EncodeToString(secret)
 	if *asJSON {
@@ -279,15 +294,16 @@ func runHead(args []string) error {
 		*shares = sharesFor(holders, modelBlocks)
 	}
 	// llama.cpp connects to ports of this machine: each one leads to a holder through its link.
-	local, holderOf := make([]string, len(addrs)), map[string]string{}
+	local, holderOf, routes := make([]string, len(addrs)), map[string]string{}, map[string]string{}
 	for i, addr := range addrs {
-		l, err := dialLink(addr, secrets[addr])
+		l, route, err := dialLink(addr, secrets[addr])
 		if err != nil {
 			return fmt.Errorf("the holder does not answer, or its line is not the right one: %w", err)
 		}
 		defer l.Close()
 		local[i] = l.Addr().String()
 		holderOf[local[i]] = addr
+		routes[addr] = route
 	}
 	fmt.Fprintf(os.Stderr, "Loading %s across %s...\n", *model, strings.Join(addrs, ", "))
 	head, err := startHead(dir, file, local, *shares, *context, *port, *threads)
@@ -315,6 +331,7 @@ func runHead(args []string) error {
 			Last    int    `json:"last"`
 			Share   int    `json:"share"`            // percent of the model's layers
 			Blocks  string `json:"blocks,omitempty"` // the blocks it announced, like 4-9
+			Route   string `json:"route,omitempty"`  // how it is reached: its address, or relay:host:port
 		}
 		out := struct {
 			URL    string  `json:"url"`
@@ -328,7 +345,7 @@ func runHead(args []string) error {
 					announced = fmt.Sprintf("%d-%d", h.First, h.Last)
 				}
 			}
-			out.Blocks = append(out.Blocks, block{b.Machine, b.First, b.Last, 100 * b.Layers() / max(total, 1), announced})
+			out.Blocks = append(out.Blocks, block{b.Machine, b.First, b.Last, 100 * b.Layers() / max(total, 1), announced, routes[b.Machine]})
 		}
 		json.NewEncoder(os.Stdout).Encode(out)
 	} else {

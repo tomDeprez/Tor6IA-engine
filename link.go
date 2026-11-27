@@ -9,7 +9,6 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 	"net"
@@ -79,14 +78,46 @@ func linkConfig(mine ed25519.PrivateKey, peer ed25519.PublicKey) (*tls.Config, e
 	}, nil
 }
 
-// serveLink listens on listen and carries each link to the block server, which inner locates.
-// A stranger fails the handshake: nothing it sends reaches the block server.
-func serveLink(listen string, secret []byte, inner func() string) (net.Listener, error) {
-	cfg, err := linkConfig(linkKey(secret, "block"), linkKey(secret, "head").Public().(ed25519.PublicKey))
-	if err != nil {
-		return nil, err
+// A holder is reached by one or several routes, tried in order and separated by "|" in its line:
+//
+//	192.168.1.20:50052        directly, when the head can reach that address
+//	relay:relay.host:8444     through a relay both machines reach, when it cannot
+const relayPrefix = "relay:"
+
+// blockLink is the holder's side of every link to one block server.
+type blockLink struct {
+	cfg   *tls.Config
+	key   ed25519.PrivateKey
+	inner func() string // where the block server listens now
+}
+
+func newBlockLink(secret []byte, inner func() string) (*blockLink, error) {
+	key := linkKey(secret, "block")
+	cfg, err := linkConfig(key, linkKey(secret, "head").Public().(ed25519.PublicKey))
+	return &blockLink{cfg, key, inner}, err
+}
+
+// serve takes one incoming connection, direct or through a relay. A stranger fails the
+// handshake: nothing it sends reaches the block server.
+func (b *blockLink) serve(raw net.Conn) {
+	c := tls.Server(raw, b.cfg)
+	c.SetDeadline(time.Now().Add(15 * time.Second))
+	if c.Handshake() != nil {
+		c.Close()
+		return
 	}
-	l, err := tls.Listen("tcp", listen, cfg)
+	c.SetDeadline(time.Time{})
+	in, err := net.DialTimeout("tcp", b.inner(), 5*time.Second)
+	if err != nil {
+		c.Close()
+		return
+	}
+	pipe(c, in)
+}
+
+// listen accepts direct links on an address of this machine.
+func (b *blockLink) listen(addr string) (net.Listener, error) {
+	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
@@ -96,20 +127,7 @@ func serveLink(listen string, secret []byte, inner func() string) (net.Listener,
 			if err != nil {
 				return
 			}
-			go func() {
-				c.SetDeadline(time.Now().Add(15 * time.Second))
-				if c.(*tls.Conn).Handshake() != nil {
-					c.Close()
-					return
-				}
-				c.SetDeadline(time.Time{})
-				in, err := net.DialTimeout("tcp", inner(), 5*time.Second)
-				if err != nil {
-					c.Close()
-					return
-				}
-				pipe(c, in)
-			}()
+			go b.serve(c)
 		}
 	}()
 	return l, nil
@@ -117,23 +135,55 @@ func serveLink(listen string, secret []byte, inner func() string) (net.Listener,
 
 // dialLink opens a port on this machine that leads to the block server of a holder: llama.cpp on
 // the head connects to it as to a block server next to it. A holder that is absent, or a wrong
-// secret, is an error now.
-func dialLink(addr string, secret []byte) (net.Listener, error) {
-	cfg, err := linkConfig(linkKey(secret, "head"), linkKey(secret, "block").Public().(ed25519.PublicKey))
+// secret, is an error now. It also returns the route that reached the holder.
+func dialLink(routes string, secret []byte) (net.Listener, string, error) {
+	block := linkKey(secret, "block").Public().(ed25519.PublicKey)
+	cfg, err := linkConfig(linkKey(secret, "head"), block)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	dial := func() (net.Conn, error) {
-		return tls.DialWithDialer(&net.Dialer{Timeout: 10 * time.Second}, "tcp", addr, cfg)
+	open := func(route string) (net.Conn, error) {
+		wait := 10 * time.Second
+		if strings.Contains(routes, "|") {
+			wait = 3 * time.Second // another route follows: do not linger on an address out of reach
+		}
+		var raw net.Conn
+		var err error
+		if relay, ok := strings.CutPrefix(route, relayPrefix); ok {
+			raw, err = relayDial(relay, hex.EncodeToString(block))
+		} else {
+			raw, err = net.DialTimeout("tcp", route, wait)
+		}
+		if err != nil {
+			return nil, err
+		}
+		c := tls.Client(raw, cfg)
+		c.SetDeadline(time.Now().Add(15 * time.Second))
+		if err := c.Handshake(); err != nil {
+			c.Close()
+			return nil, err
+		}
+		c.SetDeadline(time.Time{})
+		return c, nil
 	}
-	first, err := dial()
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", addr, err)
+	// The first route that works is the one this group keeps.
+	var route string
+	var failures []string
+	for _, r := range strings.Split(routes, "|") {
+		c, err := open(r)
+		if err == nil {
+			c.Close()
+			route = r
+			break
+		}
+		failures = append(failures, r+": "+err.Error())
 	}
-	first.Close()
+	if route == "" {
+		return nil, "", errors.New(strings.Join(failures, "; "))
+	}
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	go func() {
 		for {
@@ -142,7 +192,7 @@ func dialLink(addr string, secret []byte) (net.Listener, error) {
 				return
 			}
 			go func() {
-				out, err := dial()
+				out, err := open(route)
 				if err != nil {
 					c.Close()
 					return
@@ -151,7 +201,7 @@ func dialLink(addr string, secret []byte) (net.Listener, error) {
 			}()
 		}
 	}()
-	return l, nil
+	return l, route, nil
 }
 
 // pipe carries bytes both ways until one side closes.

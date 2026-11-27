@@ -56,6 +56,12 @@ jobs:
           curl -fL -o tiny.gguf "$TINY_MODEL"
           "./engine$(go env GOEXE)" demo --model tiny.gguf --machines 3 --prompt "Once upon a time" $DEVICE | tee demo.txt
           grep -q "tokens per second" demo.txt
+      - name: Speed without the lock, to compare (a tiny model, so only a rough figure)
+        env:
+          DEVICE: ${{ runner.os == 'macOS' && '--device CPU' || '' }}
+        run: |
+          grep "tokens per second" demo.txt
+          "./engine$(go env GOEXE)" demo --model tiny.gguf --machines 3 --prompt "Once upon a time" --unlocked $DEVICE | grep "tokens per second"
       - name: A holder and a head on an encrypted link
         env:
           DEVICE: ${{ runner.os == 'macOS' && '--device CPU' || '' }}

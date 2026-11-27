@@ -2,6 +2,11 @@
 
 Each `## vX.Y.Z` section becomes the notes of that release.
 
+## v0.2.4
+
+- `relay`: a small server that joins two machines unable to reach each other, as most machines behind a home router are. A holder started with `block --relay host:port` keeps a connection open towards it, and its line gains a second route. The head tries the direct address first and the relay after. The relay carries the link's own TLS: it sees who talks to whom and how much, never what. It caps the speed of each pair, its total speed and what it carries in a day.
+- `head --json` says by which route each holder was reached.
+
 ## v0.2.3
 
 - A block server listens on its own machine only. Other machines reach the engine through a link encrypted with TLS 1.3, where each side proves a key. The line a holder gives now ends with a secret (`192.168.1.20:50052=4-9#5f1c…`): only who has the line can use the blocks. `head --blocks` takes those lines.
