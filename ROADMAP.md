@@ -6,7 +6,7 @@ Ce fichier est la référence. Il est mis à jour à chaque tâche terminée : c
 
 **État : plan validé par Tom le 2026-11-27. Travail en cours.**
 
-**Prochaine tâche : 3.9**
+**Prochaine tâche : 5.3**
 
 Dernière mise à jour : 2026-11-27
 
@@ -57,7 +57,7 @@ Validées par Tom le 2026-11-27, avec deux changements : le relais tourne sur le
 | J1. Blocs à la carte entre amis | Choisir un modèle et un nombre de blocs dans l'interface, ne télécharger que ça, voir les blocs couverts | Tor6IA 0.3.0 | **fait** | |
 | J2. Bac à sable | Porter un bloc pour quelqu'un sans qu'il puisse toucher à ta machine | moteur 0.2.3 | **fait** | |
 | J3. Le réseau forme les groupes | Des machines derrière des box, sans se connaître, portent un modèle ensemble | Tor6IA 0.4.0 | **fait**, reste ton test à plusieurs machines | |
-| J4. Paiement par bloc | Chaque machine payée pour sa part, une machine qui triche est exclue | Tor6IA 0.5.0 | 4 à 6 j | 35 j |
+| J4. Paiement par bloc | Chaque machine payée pour sa part, une machine qui triche est exclue | Tor6IA 0.5.0 | **fait** | |
 | J5. Ouverture | La scène du chapitre 1, avec de vrais volontaires | Tor6IA 1.0.0 | 3 à 5 j | 40 j |
 
 Total : 26,5 à 40 jours de travail. Chaque jalon se termine par une démonstration que tu peux refaire toi-même.
@@ -227,7 +227,7 @@ Dépend de J1, J2 et E4. Rien ici n'est activé pour le public : sur invitation 
 - [x] **3.7 Reprise quand une machine part.** *Fait le 2026-11-27. Le coordinateur refait la chaîne avec les porteurs qui restent, en gardant la même tête. Côté demandeur, la machine suivante reçoit le texte déjà écrit et continue : la réponse se termine au lieu d'échouer (vrai aussi pour les modèles entiers). Sur le réseau public, porteur Linux tué 4 secondes après le début : la suite « 1, 2, … 15 » arrive entière et dans l'ordre, en 41 secondes au lieu de 9. Défaut trouvé et corrigé : deux chargements de la même chaîne pouvaient partir en même temps.*
   Un modèle n'est annoncé disponible que si chaque bloc a deux porteurs (D7). Une machine part : la chaîne se reforme avec l'autre porteur.
   **Fini quand** : machine débranchée au milieu d'une réponse, la réponse se termine, délai de reprise mesuré.
-- [ ] **3.9 Ne plus faire passer les petits tenseurs par le relais.** 1 à 2 j. *Nécessaire, mesuré en 3.2 : 20 % du fichier passe par le relais au chargement, soit 411 Mo pour Llama 3.2 3B et environ 3 Go pour Gemma 4 31B, 25 minutes au débit du relais.*
+- [x] **3.9 Ne plus faire passer les petits tenseurs par le relais.** *Fait le 2026-11-27, moteur 0.2.5, sans recompiler llama.cpp. Le porteur télécharge tous les tenseurs de ses blocs, et dit lesquels il a quand un lien s'ouvre. La tête regarde ce que llama.cpp envoie : un tenseur que le porteur a part sous forme d'empreinte, et le porteur remet les octets depuis son disque. Mesuré avec Llama 3.2 3B à travers le relais du VPS : 2,1 Mo transportés au lieu de 411 Mo, modèle prêt en 20 s au lieu de 3 min 30. Un moteur plus ancien obtient le lien simple.*
   llama.cpp envoie toujours les tenseurs de moins de 10 Mo. Plutôt que de recompiler llama.cpp, le lien du moteur les reconnaît au passage : le porteur les a déjà (il les télécharge avec ses blocs), la tête n'envoie que leur empreinte.
   **Fini quand** : le chargement d'un modèle entièrement préchargé fait passer moins de 1 % de ses octets par le relais.
 - [~] **3.8 Démonstration J3.** *Faite le 2026-11-27 sur le réseau public avec ce que j'ai : six nœuds sur un PC, quatre sous Windows et deux sous Linux (WSL), coordinateur et relais sur le VPS. Tor6IA 0.4.0 publiée. La démonstration à trois vraies machines sur deux connexions est le test de Tom (D10).*
@@ -237,17 +237,17 @@ Dépend de J1, J2 et E4. Rien ici n'est activé pour le public : sur invitation 
 
 Dépend de J3.
 
-- [ ] **4.1 Paiement partagé dans le registre.** 1 à 2 j.
+- [x] **4.1 Paiement partagé dans le registre.** *Fait le 2026-11-27, Tor6IA 0.5.0. Une réponse d'une chaîne paie la tête (2 parts sur 10) et les porteurs (8 parts, selon leurs blocs). Le demandeur signe la liste des comptes payés avant le travail : le coordinateur ne peut envoyer une part à personne d'autre. Le registre contient les parts, la somme reste nulle. `tor6ia audit` vérifie un registre avec paiements partagés et refuse une part modifiée (test `TestSharedPayment`). Les versions d'avant 0.5.0 ne savent pas vérifier ce registre : elles doivent se mettre à jour.*
   Une réponse paie plusieurs comptes, chacun selon ses couches et les tokens calculés. Toujours signé par celui qui paie, toujours à somme nulle.
   Fichiers : `ledger.go`, `proto.go` dans Tor6IA.
   **Fini quand** : `tor6ia audit` vérifie un registre contenant des paiements partagés, et refuse une part modifiée.
-- [ ] **4.2 Détecter une machine qui renvoie n'importe quoi.** 2 à 3 j.
+- [x] **4.2 Détecter une machine qui renvoie n'importe quoi.** *Fait le 2026-11-27. Quand un test à réponse connue échoue à travers une chaîne, le coordinateur remplace un porteur à la fois et refait le test. Un porteur est exclu 24 h quand la chaîne échoue avec lui, réussit sans lui, et échoue encore quand on le remet. Essai réel : un porteur lancé avec `T6E_TEST_NOISE=1` (il renvoie du bruit, la réponse devient « ombatteinуч disorder… ») est exclu en 4 tests et 67 secondes, la tête n'est pas pénalisée. Simulation : chaque machine fautive est exclue en 3 à 4 tests ; sur 1 000 tests dont 1 sur 100 échoue par malchance, aucune machine honnête n'est exclue. Limites : il faut qu'une autre machine porte les mêmes blocs pour distinguer le fautif, et la comparaison directe des sorties de deux porteurs n'est pas faite (elle demanderait de calculer chaque réponse deux fois).*
   Deux porteurs du même bloc reçoivent la même entrée : leurs sorties doivent concorder. Tests à réponse connue passés par une chaîne précise.
   **Fini quand** : une machine modifiée pour renvoyer du bruit est exclue en moins de dix demandes, sans exclure une machine honnête sur mille demandes.
-- [ ] **4.3 Ce que voit chaque machine, écrit clairement.** 0,5 j.
+- [x] **4.3 Ce que voit chaque machine, écrit clairement.** *Fait le 2026-11-27. Quand le modèle choisi est porté en blocs, l'interface affiche au-dessus de la conversation : « Celle qui tient la conversation lit ton message… Les autres voient passer les nombres du calcul, pas le texte : un expert pourrait en tirer une partie du sens. N'envoie rien de secret. » Même texte dans le README. Les groupes formés à la main entre personnes de confiance restent disponibles.*
   Avant de poser une question à un modèle en blocs, l'interface dit que les machines de la chaîne voient passer les données du calcul (D6).
   **Fini quand** : le message est dans l'interface et la documentation, et le mode « groupe de confiance » reste disponible.
-- [ ] **4.4 Démonstration J4.** 0,5 j.
+- [x] **4.4 Démonstration J4.** *Faite le 2026-11-27 : deux réponses de Llama 3.2 3B par une chaîne (« Blue, Red, Green », 7 crédits, puis une phrase, 43 crédits). Registre : parts tête 4, porteurs 8 et 8. Vérifié à la main : 7 crédits = 2 + 2 + 3 (la tête prend le reste de la division), 43 = 17 + 17 + 9. Soldes : porteurs 19 et 19, tête 12, demandeur -50, somme nulle. Le porteur tricheur, exclu avant, n'a rien reçu. `tor6ia audit` : « ledger verified: 3 entries, 4 accounts, 50 credits owed to members ».*
   **Fini quand** : une réponse sur un modèle en blocs, les crédits de chaque porteur vérifiés à la main contre ses couches. Tor6IA 0.5.0 publiée.
 
 ## 11. Jalon J5 : ouverture
@@ -292,6 +292,7 @@ Dépend de tout ce qui précède.
 
 ## 15. Journal
 
+- 2026-11-27 : **J4 terminé, et 3.9 avec.** Paiement partagé, tricheur exclu, avertissement de vie privée, chargement par empreintes. Trois défauts trouvés en testant pour de vrai : un conflit d'identifiants dans l'interface de la version 0.4.0 (le bouton « Tenir ces conversations » ne répondait pas), une tête qui recevait des tests pendant qu'elle rechargeait sa chaîne et se faisait bannir à tort, et une tête qui répondait seule quand sa chaîne tombait, ce qui aurait payé des porteurs pour rien. Tous corrigés, avec un test qui empêche le premier de revenir.
 - 2026-11-27 : **J3 terminé. Tor6IA 0.4.0, moteur 0.2.4, coordinateur et relais déployés sur le VPS.** Le réseau forme les chaînes seul et reprend quand une machine part. Deux choix faits en route. Les lignes des porteurs passent par le coordinateur, qui les donne à la tête qu'il a choisie : rien à échanger à la main, mais une tête peut garder une ligne et s'en servir hors du réseau, à traiter avant l'ouverture (5.2). Une machine sans Ollama, ou trop petite pour un modèle entier, peut porter des blocs : c'est le cas d'usage du projet. 3.9 devient nécessaire et change de méthode.
 - 2026-11-27 : **J1 et J2 terminés. Tor6IA 0.3.0 et moteur 0.2.3 publiés, pipelines vertes sur Windows, Linux et macOS.** Chacun peut porter des blocs depuis l'interface. Le serveur de blocs est enfermé, plafonné en mémoire, invisible du réseau, relancé s'il tombe, et son cache ne dépasse pas ses blocs. Les groupes sont encore formés à la main : c'est J3 qui les fait former par le réseau. Décision prise en route : la ligne d'un porteur porte un secret, et les deux clés du lien en sont tirées, ce qui évite d'échanger des clés à la main.
 - 2026-11-27 : phase 0 terminée. Premier plan écrit.
