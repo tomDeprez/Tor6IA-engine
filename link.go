@@ -124,7 +124,7 @@ func (b *blockLink) serve(raw net.Conn) {
 	}
 	if err == nil {
 		go func() {
-			io.Copy(c, in) // the block server's answers go back as they are
+			io.Copy(c, answersOf(in)) // the block server's answers go back as they are
 			c.Close()
 			in.Close()
 		}()
@@ -132,6 +132,28 @@ func (b *blockLink) serve(raw net.Conn) {
 	}
 	c.Close()
 	in.Close()
+}
+
+// noisy spoils what a block server answers: the results of its computations come back wrong, as
+// from a machine that is broken or that cheats. The start of each read is left alone so that
+// the sizes still read right and the head receives noise, not an error.
+type noisy struct{ io.Reader }
+
+func (n noisy) Read(p []byte) (int, error) {
+	k, err := n.Reader.Read(p)
+	for i := 64; i < k; i++ {
+		p[i] ^= 0x55
+	}
+	return k, err
+}
+
+// answersOf is what goes back to the head. T6E_TEST_NOISE=1 makes this holder answer noise: it
+// exists to test that a network notices such a machine and leaves it out.
+func answersOf(blockServer io.Reader) io.Reader {
+	if os.Getenv("T6E_TEST_NOISE") != "" {
+		return noisy{blockServer}
+	}
+	return blockServer
 }
 
 // listen accepts direct links on an address of this machine.

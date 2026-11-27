@@ -2,6 +2,10 @@
 
 Each `## vX.Y.Z` section becomes the notes of that release.
 
+## v0.2.6
+
+- `T6E_TEST_NOISE=1` makes a holder answer noise instead of its results. It is there to test that a network notices a machine that computes wrong.
+
 ## v0.2.5
 
 - Loading a model no longer sends a fifth of it over the network. llama.cpp always sends the tensors under 10 MB whole. Now a holder says which tensors it has on its disk when a link opens, and the head sends only the hash of those. Measured with Llama 3.2 3B through a relay: 2 MB carried instead of 411 MB, ready in 20 seconds instead of 3 minutes 30. llama.cpp itself is unchanged. A holder downloads all the tensors of its blocks, the small ones too.
