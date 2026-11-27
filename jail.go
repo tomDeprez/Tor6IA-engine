@@ -212,9 +212,9 @@ func jailTest() error {
 		return errors.New("the locked probe did not finish")
 	}
 	raw, _ := os.ReadFile(p.Log)
-	if !strings.Contains(string(raw), ": ") {
+	if !strings.Contains(string(raw), "read a personal file: ") {
 		// The probe did not answer: show what was written instead, and what the lock itself reported.
-		fmt.Printf("the locked probe did not answer. Its output:\n%s\n", raw)
+		fmt.Printf("the locked probe did not answer. What was written in its place:\n%s\n", raw)
 		if said, err := os.ReadFile(p.Log + ".bridge"); err == nil {
 			fmt.Printf("The lock reported:\n%s\n", said)
 		}
