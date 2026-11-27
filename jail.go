@@ -128,6 +128,7 @@ func runBridge(args []string) error {
 	cmd := exec.Command(fs.Arg(0), fs.Args()[1:]...)
 	cmd.Dir = filepath.Dir(fs.Arg(0))
 	cmd.Stdout, cmd.Stderr = logFile, logFile
+	quiet(cmd)
 	if err := cmd.Start(); err != nil {
 		fmt.Fprintln(logFile, "bridge: cannot start the program:", err)
 		return err
@@ -211,10 +212,11 @@ func jailTest() error {
 		return errors.New("the locked probe did not finish")
 	}
 	raw, _ := os.ReadFile(p.Log)
-	if len(raw) == 0 {
-		// The probe said nothing: show what the lock itself reported, when it keeps a journal.
+	if !strings.Contains(string(raw), ": ") {
+		// The probe did not answer: show what was written instead, and what the lock itself reported.
+		fmt.Printf("the locked probe did not answer. Its output:\n%s\n", raw)
 		if said, err := os.ReadFile(p.Log + ".bridge"); err == nil {
-			fmt.Printf("the locked probe printed nothing. The lock reported:\n%s\n", said)
+			fmt.Printf("The lock reported:\n%s\n", said)
 		}
 	}
 	locked := map[string]string{}

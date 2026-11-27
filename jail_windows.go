@@ -267,3 +267,10 @@ func startJailed(j Jail, front, program string, args []string) (*jailProc, error
 	go m.serveOutside(l)
 	return p, nil
 }
+
+// quiet starts a program without a console. A console is one more process, and the job of a
+// locked program allows two: the bridge and the program.
+func quiet(cmd *exec.Cmd) {
+	const noWindow = 0x08000000
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: noWindow}
+}
