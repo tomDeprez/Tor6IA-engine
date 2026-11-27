@@ -128,6 +128,9 @@ func runBridge(args []string) error {
 	cmd := exec.Command(fs.Arg(0), fs.Args()[1:]...)
 	cmd.Dir = filepath.Dir(fs.Arg(0))
 	cmd.Stdout, cmd.Stderr = logFile, logFile
+	// An empty input of our own: by default Go opens the NUL device for it, which a container
+	// is refused on Windows Server.
+	cmd.Stdin = strings.NewReader("")
 	quiet(cmd)
 	if err := cmd.Start(); err != nil {
 		fmt.Fprintln(logFile, "bridge: cannot start the program:", err)
@@ -178,6 +181,7 @@ func runProbe(args []string) error {
 	if runtime.GOOS == "windows" {
 		other = exec.Command("cmd", "/c", "exit 0")
 	}
+	other.Stdin = strings.NewReader("") // so that a refusal comes from the lock, not from a missing NUL device
 	say("start another program", other.Run())
 	return nil
 }
