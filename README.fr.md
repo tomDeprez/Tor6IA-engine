@@ -80,7 +80,7 @@ Construit et testé :
 
 Branché dans Tor6IA depuis sa version 0.2.0 : un nœud partage un modèle réparti sur des machines de confiance, et son interface affiche les blocs.
 
-Pas encore construit, dans l'ordre prévu :
+Pas encore construit. Le plan détaillé, tâche par tâche, est dans [ROADMAP.md](ROADMAP.md) et il est mis à jour à chaque étape. En résumé :
 
 1. **Relais.** Les machines derrière une box ne se joignent pas directement. Le coordinateur Tor6IA portera le trafic entre la tête et les blocs.
 2. **Plusieurs machines par bloc.** Quand l'une part, la suivante qui porte le même bloc prend le relais. Aujourd'hui un serveur de blocs qui s'arrête coupe la réponse.

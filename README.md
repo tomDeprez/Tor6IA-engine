@@ -91,7 +91,7 @@ Built and tested:
 
 Plugged into Tor6IA since its version 0.2.0: a node shares a model split across machines its owner trusts, and its interface shows the blocks.
 
-Not built yet, in the order planned:
+Not built yet. The detailed plan, task by task, is in [ROADMAP.md](ROADMAP.md) (in French) and is updated as the work advances. In short:
 
 1. **Relay.** Home machines cannot reach each other directly. The Tor6IA coordinator will carry the traffic between head and blocks.
 2. **Several machines per block.** When one leaves, the next one that holds the same block takes over. Today a block server that stops ends the answer.
