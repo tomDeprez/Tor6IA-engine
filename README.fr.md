@@ -80,7 +80,7 @@ tor6ia-engine head --model gemma4:31b --blocks 192.168.1.20:50052=1-3,192.168.1.
 
 La tête place chaque couche sur la machine qui l'a annoncée, refuse un groupe qui ne couvre pas tout le modèle en disant quels blocs manquent, puis sert une API compatible OpenAI sur `http://127.0.0.1:8090/v1`.
 
-**Les serveurs de blocs sont enfermés.** Un serveur de blocs obéit aux ordres de calcul d'une autre machine. Il tourne dans une boîte où il ne peut ni lire tes fichiers, ni se connecter ailleurs, ni lancer un autre programme : AppContainer sous Windows, Landlock et seccomp sous Linux, profil de bac à sable sous macOS. `tor6ia-engine jail-test` le montre sur ta machine. `--unlocked` retire la boîte.
+**Les serveurs de blocs sont enfermés.** Un serveur de blocs obéit aux ordres de calcul d'une autre machine. Il tourne dans une boîte où il ne peut ni lire tes fichiers, ni se connecter ailleurs, ni lancer un autre programme : AppContainer sous Windows, Landlock et seccomp sous Linux, profil de bac à sable sous macOS. Sa mémoire est plafonnée à ce que ses blocs demandent, et il s'arrête avec le moteur, même tué de force. `tor6ia-engine jail-test` montre tout cela sur ta machine. `--unlocked` retire la boîte.
 
 **Toujours entre machines de confiance.** Un serveur de blocs n'a encore ni identification ni chiffrement : toute machine qui atteint son port peut lui donner du travail, et voit ce qui passe. Utilise un réseau privé ou un VPN.
 

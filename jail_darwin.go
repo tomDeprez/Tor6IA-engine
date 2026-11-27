@@ -12,7 +12,8 @@ import (
 	"strings"
 )
 
-// launch starts a program. macOS has no way to end a child when its parent is killed by force.
+// launch starts a program. macOS has no way to end a child when its parent is killed by force:
+// locked-in programs get a guard for that (see startJailed).
 func launch(cmd *exec.Cmd) error { return cmd.Start() }
 
 // startJailed starts a program under sandbox-exec. The profile allows what a program normally
@@ -67,6 +68,15 @@ func startJailed(j Jail, front, program string, args []string) (*jailProc, error
 	cmd.Env = append(os.Environ(), "LLAMA_CACHE="+j.Write, "TMPDIR="+j.Write, "DYLD_LIBRARY_PATH="+filepath.Dir(program))
 	if err := launch(cmd); err != nil {
 		return nil, err
+	}
+	// macOS can neither end a program when the one that started it is killed by force, nor cap
+	// its memory. This small loop does both: it ends the program when the engine has gone, or
+	// when the program holds more memory than it was given.
+	guard := exec.Command("/bin/sh", "-c",
+		`while kill -0 $1 2>/dev/null && kill -0 $2 2>/dev/null; do [ $3 -gt 0 ] && [ "$(ps -o rss= -p $2 | tr -d ' ')" -gt $3 ] 2>/dev/null && break; sleep 1; done; kill -9 $2 2>/dev/null`,
+		"guard", strconv.Itoa(os.Getpid()), strconv.Itoa(cmd.Process.Pid), strconv.Itoa(j.MemoryMB<<10))
+	if guard.Start() == nil {
+		go guard.Wait()
 	}
 	p := &jailProc{Addr: front, Log: logPath, Done: make(chan struct{}), kill: func() { cmd.Process.Kill() }}
 	go func() { cmd.Wait(); close(p.Done) }()

@@ -22,6 +22,10 @@ const (
 	memoryReserved = 2 << 30
 )
 
+// memoryCap is the most memory, in megabytes, a block server may use for layers of this size. It
+// leaves room above what was measured: a block server that reaches it is stopped by the system.
+func memoryCap(size int64) int { return int(float64(size)*(memoryPerByte+0.2))>>20 + 1024 }
+
 type ModelBlock struct {
 	First, Last int   // layers
 	Size        int64 // bytes of those layers

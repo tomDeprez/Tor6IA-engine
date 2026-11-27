@@ -51,7 +51,7 @@ func startJailed(j Jail, front, program string, args []string) (*jailProc, error
 	if err != nil {
 		return nil, err
 	}
-	a := []string{"jail-exec", "--write", j.Write, "--port", strconv.Itoa(j.Port)}
+	a := []string{"jail-exec", "--write", j.Write, "--port", strconv.Itoa(j.Port), "--memory", strconv.Itoa(j.MemoryMB)}
 	for _, dir := range append([]string{runDir}, j.Run...) {
 		a = append(a, "--run", dir)
 	}
@@ -96,6 +96,7 @@ func runJailExec(args []string) error {
 	fs.Var(&run, "run", "folder the program may read and execute")
 	write := fs.String("write", "", "folder the program may write")
 	port := fs.Int("port", 0, "port the program may listen on")
+	memory := fs.Int("memory", 0, "megabytes of memory the program may use, 0 for no limit")
 	fs.Parse(args)
 	if fs.NArg() == 0 {
 		return errors.New("jail-exec: no program")
@@ -109,6 +110,14 @@ func runJailExec(args []string) error {
 	}
 	if err := lockSockets(); err != nil {
 		return err
+	}
+	if *memory > 0 {
+		// The memory a program asks for and may write: its heap, its buffers, its stacks. Past the
+		// limit the kernel refuses, and the program stops.
+		limit := uint64(*memory) << 20
+		if err := syscall.Setrlimit(syscall.RLIMIT_DATA, &syscall.Rlimit{Cur: limit, Max: limit}); err != nil {
+			return fmt.Errorf("memory limit: %v", err)
+		}
 	}
 	return syscall.Exec(fs.Arg(0), fs.Args(), os.Environ())
 }

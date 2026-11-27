@@ -133,8 +133,7 @@ func runBlock(args []string) error {
 		if !*asJSON {
 			fmt.Println()
 		}
-		// The cap leaves room above what was measured: a block server that reaches it is stopped by the system.
-		memoryMB = int(float64(size)*(memoryPerByte+0.2))>>20 + 512
+		memoryMB = memoryCap(size)
 		announce = fmt.Sprintf("=%d-%d", first, last)
 	}
 	block, err := startBlock(dir, *listen, *threads, *device, !*unlocked, memoryMB)

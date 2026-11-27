@@ -225,6 +225,11 @@ func demo(model string, machines int, prompt, device string, locked bool) error 
 		return err
 	}
 	threads := max(1, runtime.NumCPU()/2) // one block computes at a time: each may use half of the processors
+	// Any block server may receive most of the model: each is capped as if it held it all.
+	memoryMB := 0
+	if st, err := os.Stat(file); err == nil {
+		memoryMB = memoryCap(st.Size())
+	}
 
 	var addrs, blockLogs []string
 	for i := 0; i < machines; i++ {
@@ -232,7 +237,7 @@ func demo(model string, machines int, prompt, device string, locked bool) error 
 		if err != nil {
 			return err
 		}
-		block, err := startBlock(dir, "127.0.0.1:"+strconv.Itoa(port), threads, device, locked, 0)
+		block, err := startBlock(dir, "127.0.0.1:"+strconv.Itoa(port), threads, device, locked, memoryMB)
 		if err != nil {
 			return err
 		}

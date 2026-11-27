@@ -91,7 +91,7 @@ tor6ia-engine head --model gemma4:31b --blocks 192.168.1.20:50052=1-3,192.168.1.
 
 The head places each layer on the machine that announced it, refuses a group that does not cover the whole model and says which blocks are missing, then serves an OpenAI-compatible API on `http://127.0.0.1:8090/v1`.
 
-**Block servers are locked in.** A block server obeys another machine's computing orders. It runs in a lock where it cannot read your files, connect anywhere or start another program: an AppContainer on Windows, Landlock and seccomp on Linux, a sandbox profile on macOS. `tor6ia-engine jail-test` shows it on your machine. `--unlocked` removes the lock.
+**Block servers are locked in.** A block server obeys another machine's computing orders. It runs in a lock where it cannot read your files, connect anywhere or start another program: an AppContainer on Windows, Landlock and seccomp on Linux, a sandbox profile on macOS. Its memory is capped at what its blocks need, and it stops with the engine, even when the engine is killed by force. `tor6ia-engine jail-test` shows all of it on your machine. `--unlocked` removes the lock.
 
 **Still between machines you trust.** A block server has no login and no encryption yet: any machine that can reach its port can give it work, and sees what passes through. Use a private network or a VPN.
 

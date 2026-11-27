@@ -37,7 +37,7 @@ jobs:
           if [ -n "$unformatted" ]; then echo "Run gofmt on: $unformatted"; exit 1; fi
       - run: go vet ./...
       - run: go test ./...
-      - name: A locked-in program cannot read a personal file, connect out or start a program
+      - name: A locked-in program cannot read a personal file, connect out, start a program or exceed its memory, and stops with a killed engine
         run: |
           go build -o "engine$(go env GOEXE)" .
           "./engine$(go env GOEXE)" jail-test

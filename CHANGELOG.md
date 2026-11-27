@@ -2,6 +2,12 @@
 
 Each `## vX.Y.Z` section becomes the notes of that release.
 
+## v0.2.3
+
+- The memory of a block server is capped on Linux and macOS too, not only on Windows: past what its blocks need, it is stopped.
+- On macOS a block server now stops with the engine, even when the engine is killed by force.
+- `jail-test` also proves the memory cap, and that a block server does not outlive a killed engine.
+
 ## v0.2.2
 
 - A block server announces the address this machine really uses on the network. It could announce a dead interface (169.254.x.x).
