@@ -2,6 +2,10 @@
 
 Each `## vX.Y.Z` section becomes the notes of that release.
 
+## v0.2.2
+
+- A block server announces the address this machine really uses on the network. It could announce a dead interface (169.254.x.x).
+
 ## v0.2.1
 
 - `block --json --exit-with-stdin`: a program that drives a block server gets clean JSON lines, and the block server stops when that program goes away.

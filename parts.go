@@ -149,12 +149,21 @@ func reachable(listen string) (string, error) {
 	if host != "" && host != "0.0.0.0" && host != "::" {
 		return listen, nil
 	}
+	// The address this machine uses to reach the outside is the one others can reach. Asking for a
+	// route sends nothing. The first interface in the list is often a dead one (169.254.x.x).
+	if c, err := net.Dial("udp4", "192.0.2.1:9"); err == nil {
+		ip := c.LocalAddr().(*net.UDPAddr).IP
+		c.Close()
+		if !ip.IsLoopback() && !ip.IsLinkLocalUnicast() {
+			return net.JoinHostPort(ip.String(), port), nil
+		}
+	}
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return "", err
 	}
 	for _, a := range addrs {
-		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
+		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && !ipnet.IP.IsLinkLocalUnicast() && ipnet.IP.To4() != nil {
 			return net.JoinHostPort(ipnet.IP.String(), port), nil
 		}
 	}
