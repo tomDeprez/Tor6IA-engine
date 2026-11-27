@@ -37,7 +37,11 @@ jobs:
           if [ -n "$unformatted" ]; then echo "Run gofmt on: $unformatted"; exit 1; fi
       - run: go vet ./...
       - run: go test ./...
-      - name: Split a model across three block servers
+      - name: A locked-in program cannot read a personal file, connect out or start a program
+        run: |
+          go build -o "engine$(go env GOEXE)" .
+          "./engine$(go env GOEXE)" jail-test
+      - name: Split a model across three locked-in block servers
         env:
           # GitHub's macOS machines have a virtual graphics card on which a block server stops with
           # "unsupported op": there the demo runs on the processor.

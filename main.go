@@ -16,6 +16,8 @@ import (
 
 var version = "dev"
 
+const unlockedHelp = "run block servers with every right of your account instead of locked in: only for machines you trust, or to debug"
+
 const deviceHelp = `what computes on a block server: empty for llama.cpp's choice, CPU for the processor (use it if a block server stops with "unsupported op")`
 
 const usage = `tor6ia-engine: one model, several machines
@@ -40,16 +42,25 @@ func main() {
 		machines := fs.Int("machines", 3, "how many block servers to start")
 		prompt := fs.String("prompt", "Explain in one sentence what a peer-to-peer network is.", "question to ask")
 		device := fs.String("device", "", deviceHelp)
+		unlocked := fs.Bool("unlocked", false, unlockedHelp)
 		fs.Parse(os.Args[2:])
 		if *machines < 1 || *machines > 16 {
 			err = fmt.Errorf("--machines must be between 1 and 16")
 			break
 		}
-		err = demo(*model, *machines, *prompt, *device)
+		err = demo(*model, *machines, *prompt, *device, !*unlocked)
 	case "block":
 		err = runBlock(os.Args[2:])
 	case "head":
 		err = runHead(os.Args[2:])
+	case "jail-test":
+		err = jailTest()
+	case "jail-exec":
+		err = runJailExec(os.Args[2:])
+	case "bridge":
+		err = runBridge(os.Args[2:])
+	case "probe":
+		err = runProbe(os.Args[2:])
 	case "version":
 		fmt.Println("tor6ia-engine", version, "with llama.cpp", llamaBuild)
 	default:
@@ -67,22 +78,34 @@ func runBlock(args []string) error {
 	listen := fs.String("listen", "127.0.0.1:50052", "address the block server listens on")
 	threads := fs.Int("threads", max(1, runtime.NumCPU()/2), "processors to use")
 	device := fs.String("device", "", deviceHelp)
+	unlocked := fs.Bool("unlocked", false, unlockedHelp)
 	fs.Parse(args)
 	dir, err := ensureLlama()
 	if err != nil {
 		return err
 	}
-	cmd, err := blockCommand(dir, *listen, *threads, *device)
+	block, err := startBlock(dir, *listen, *threads, *device, !*unlocked)
 	if err != nil {
 		return err
 	}
-	if host, _, _ := net.SplitHostPort(*listen); host != "127.0.0.1" && host != "localhost" && host != "::1" {
-		fmt.Println("Warning: a block server lets any machine that can reach this port run computations inside this process.")
-		fmt.Println("It has no login and no encryption. Open it only on a private network or a VPN, to machines you trust.")
+	defer block.Stop()
+	how := "locked in: it cannot read your files, connect out or start programs"
+	if *unlocked {
+		how = "NOT locked in: it has every right of your account"
 	}
-	fmt.Printf("Block server on %s, %d processors. Stop it with Ctrl+C.\n", *listen, *threads)
-	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
-	return cmd.Run()
+	fmt.Printf("Block server on %s, %d processors, %s.\n", block.Addr, *threads, how)
+	if host, _, _ := net.SplitHostPort(*listen); host != "127.0.0.1" && host != "localhost" && host != "::1" {
+		fmt.Println("It has no login and no encryption: any machine that can reach this port can give it work.")
+	}
+	fmt.Println("Stop it with Ctrl+C.")
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+	select {
+	case <-stop:
+	case <-block.Done:
+		return fmt.Errorf("the block server stopped by itself\n%s", tailFile(block.Log, 12))
+	}
+	return nil
 }
 
 func runHead(args []string) error {

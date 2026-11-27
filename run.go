@@ -33,20 +33,68 @@ func freePort() (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
-// blockCommand is one block server: it lends this machine's memory and processor to a head.
-// device chooses what computes: empty lets llama.cpp decide (the graphics card when there is one),
-// "CPU" forces the processor.
-func blockCommand(dir, listen string, threads int, device string) (*exec.Cmd, error) {
-	host, port, err := net.SplitHostPort(listen)
-	if err != nil {
+// startBlock starts one block server: it lends this machine's memory and processor to a head.
+// listen is where the head reaches it. device chooses what computes: empty lets llama.cpp decide
+// (the graphics card when there is one), "CPU" forces the processor.
+//
+// locked runs it inside the lock described in jail.go, which is the only safe way to serve
+// machines that are not trusted. Unlocked, it has every right of the user who started it.
+func startBlock(dir, listen string, threads int, device string, locked bool) (*jailProc, error) {
+	host, portText, err := net.SplitHostPort(listen)
+	port, perr := strconv.Atoi(portText)
+	if err != nil || perr != nil {
 		return nil, fmt.Errorf("bad address %q: want host:port", listen)
 	}
 	// -c keeps the layers it received on disk: the next start loads them locally instead of over the network.
-	args := []string{"-H", host, "-p", port, "-t", strconv.Itoa(threads), "-c"}
-	if device != "" {
-		args = append(args, "-d", device)
+	args := func(host string, port int) []string {
+		a := []string{"-H", host, "-p", strconv.Itoa(port), "-t", strconv.Itoa(threads), "-c"}
+		if device != "" {
+			a = append(a, "-d", device)
+		}
+		return a
 	}
-	return command(dir, "ggml-rpc-server", args...), nil
+	program := filepath.Join(dir, exe("ggml-rpc-server"))
+	if locked {
+		_, writeDir, err := jailHome()
+		if err != nil {
+			return nil, err
+		}
+		inner := port
+		if runtime.GOOS == "windows" {
+			// Its container cannot be reached from outside: it listens on a port of its own, and
+			// the engine carries the connections from listen through the bridge.
+			if inner, err = freePort(); err != nil {
+				return nil, err
+			}
+			host = "127.0.0.1"
+		}
+		return startJailed(Jail{Run: []string{dir}, Write: writeDir, Port: inner}, listen, program, args(host, inner))
+	}
+	logFile, err := os.CreateTemp("", "tor6ia-engine-block-*.log")
+	if err != nil {
+		return nil, err
+	}
+	cmd := command(dir, "ggml-rpc-server", args(host, port)...)
+	cmd.Stdout, cmd.Stderr = logFile, logFile
+	if err := launch(cmd); err != nil {
+		return nil, fmt.Errorf("block server: %w", err)
+	}
+	p := &jailProc{Addr: listen, Log: logFile.Name(), Done: make(chan struct{}), kill: func() { cmd.Process.Kill() }}
+	go func() { cmd.Wait(); close(p.Done) }()
+	if err := waitPort(dialable(listen), p.Done); err != nil {
+		p.Stop()
+		return nil, fmt.Errorf("block server: %w\n%s", err, tailFile(p.Log, 8))
+	}
+	return p, nil
+}
+
+// dialable turns a listening address into one that can be dialled from this machine.
+func dialable(listen string) string {
+	host, port, _ := net.SplitHostPort(listen)
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "127.0.0.1"
+	}
+	return net.JoinHostPort(host, port)
 }
 
 // Head is the machine that holds the conversation: it runs the model across the block servers
@@ -71,7 +119,7 @@ func startHead(dir, model string, blocks []string, port, threads int) (*Head, er
 	}
 	cmd := command(dir, "llama-server", args...)
 	cmd.Stdout, cmd.Stderr = logFile, logFile
-	if err := cmd.Start(); err != nil {
+	if err := launch(cmd); err != nil { // the model stops with the engine, even when the engine is killed by force
 		return nil, err
 	}
 	exited := make(chan error, 1)
@@ -145,7 +193,7 @@ func (h *Head) Ask(prompt string, maxTokens int) (string, float64, error) {
 
 // demo shows the whole idea on one machine: it starts several block servers, splits the model
 // across them, prints who holds which layers and asks one question.
-func demo(model string, machines int, prompt, device string) error {
+func demo(model string, machines int, prompt, device string, locked bool) error {
 	dir, err := ensureLlama()
 	if err != nil {
 		return err
@@ -162,26 +210,19 @@ func demo(model string, machines int, prompt, device string) error {
 		if err != nil {
 			return err
 		}
-		addr := "127.0.0.1:" + strconv.Itoa(port)
-		cmd, err := blockCommand(dir, addr, threads, device)
+		block, err := startBlock(dir, "127.0.0.1:"+strconv.Itoa(port), threads, device, locked)
 		if err != nil {
 			return err
 		}
-		logFile, err := os.CreateTemp("", "tor6ia-engine-block-*.log")
-		if err != nil {
-			return err
-		}
-		defer os.Remove(logFile.Name())
-		cmd.Stdout, cmd.Stderr = logFile, logFile
-		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("block server: %w", err)
-		}
-		defer cmd.Process.Kill()
-		addrs = append(addrs, addr)
-		blockLogs = append(blockLogs, logFile.Name())
+		defer block.Stop()
+		addrs = append(addrs, block.Addr)
+		blockLogs = append(blockLogs, block.Log)
 	}
-	fmt.Printf("%d block servers started. Loading %s across them...\n", machines, model)
-	time.Sleep(time.Second) // let the block servers open their ports
+	how := "locked in"
+	if !locked {
+		how = "not locked in"
+	}
+	fmt.Printf("%d block servers started, %s. Loading %s across them...\n", machines, how, model)
 
 	port, err := freePort()
 	if err != nil {
