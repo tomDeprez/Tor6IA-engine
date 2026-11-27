@@ -4,150 +4,246 @@ But : chaque personne choisit un modèle et un nombre de blocs dans l'interface 
 
 Ce fichier est la référence. Il est mis à jour à chaque tâche terminée : case cochée, date, résultat mesuré, décision prise.
 
-**Prochaine tâche : 1.1**
+**État : plan en attente de validation par Tom. Rien n'est commencé au-delà de la phase 0.**
+
+**Prochaine tâche après validation : E1**
 
 Dernière mise à jour : 2026-11-27
 
-## Comment lire ce plan
+## 1. Le résultat final, en une scène
+
+Trois personnes qui ne se connaissent pas, dans trois pays, ouvrent Tor6IA sur des portables de 8 à 16 Go.
+
+1. Chacune clique sur Gemma 4 31B. L'interface dit : « Pour ta machine, 3 blocs conseillés sur 20 ».
+2. Chacune choisit son nombre de blocs. Sa machine télécharge seulement ces blocs.
+3. L'interface affiche « blocs couverts : 14 sur 20, il manque 2 machines », puis « modèle disponible ».
+4. Une quatrième personne pose une question à ce modèle. La réponse arrive, calculée par la chaîne de machines.
+5. Une machine s'éteint au milieu : la réponse se termine quand même.
+6. Chaque machine a reçu des crédits en proportion de ses blocs. Aucune n'a pu lire les fichiers d'une autre.
+
+Le projet est fini quand cette scène est jouée pour de vrai et notée dans le journal, avec les vitesses mesurées.
+
+## 2. Comment lire ce plan
 
 - `[ ]` à faire, `[~]` en cours, `[x]` fait, `[!]` bloqué.
-- Chaque tâche dit **Fini quand** : un résultat vérifiable, jamais « le code est écrit ».
-- Chaque phase commence par un **essai** court. Si l'essai échoue, la phase change de route avant d'avoir coûté cher.
-- Les durées sont des jours de travail, en fourchette. Elles seront corrigées après chaque essai.
+- Chaque tâche dit **Fini quand** : un résultat observé, jamais « le code est écrit ».
 - **À vérifier** signale une hypothèse que personne n'a encore mesurée.
+- Les durées sont des jours de travail, en fourchette. Elles sont corrigées après les essais de l'étape E.
+- Une tâche terminée, c'est : tests écrits, pipeline verte sur Windows, Linux et macOS, ce fichier mis à jour, poussé sur GitHub.
 
-## Vue d'ensemble
+## 3. Décisions à valider par Tom avant de commencer
 
-| Phase | Ce qu'elle apporte | Durée | Dépend de |
+Chaque décision a ma recommandation. Réponds « ok » ou change ce que tu veux.
+
+| N° | Décision | Ma recommandation | Pourquoi |
 |---|---|---|---|
-| 0. Socle | Un modèle réparti entre machines de confiance | fait | |
-| 1. Bac à sable | Porter un bloc pour un inconnu sans risque | 5 à 8 j | 0 |
-| 2. Blocs téléchargeables | Chaque machine ne télécharge que sa partie | 3 à 3,5 j | 0 |
-| 3. Choix des blocs | « Pour ta machine, 3 blocs conseillés » dans l'interface | 2 à 3 j | 2 |
-| 4. Relais et groupes | Le réseau assemble les machines tout seul | 8 à 12 j | 1, 2 |
-| 5. Paiement par bloc | Chacun payé pour sa part, triche détectée | 4 à 6 j | 4 |
-| 6. Ouverture | Activé pour tout le monde | 3 à 5 j | 1 à 5 |
+| D1 | Par quoi commencer | Tous les essais d'abord (étape E, 4 jours), puis construire | Chaque essai peut changer la route. Mieux vaut le savoir en 4 jours qu'en 4 semaines. |
+| D2 | Premier résultat visible | Les blocs à la carte entre machines de confiance (jalon J1), avant le bac à sable | Tu vois ton idée marcher en une semaine, sans risque puisque ce sont des machines que tu choisis. |
+| D3 | Ouverture aux inconnus | Interdite tant que le bac à sable (J2) n'est pas fini et testé | Un serveur de blocs sans protection ouvert au monde mettrait chaque utilisateur en danger. |
+| D4 | Serveur du relais | Un serveur dédié, loué pour ça, pas le VPS actuel | Le VPS actuel porte 8 sites. Le relais fait passer tout le trafic des calculs. Coût à chiffrer en E4, ordre de grandeur 5 à 20 € par mois. |
+| D5 | Windows sans bac à sable possible | Accepter que porter des blocs sous Windows passe alors par WSL | Seulement si l'essai E1 échoue. Utiliser un modèle reste possible partout. |
+| D6 | Vie privée en mode blocs | Accepter que les machines de la chaîne voient passer les données du calcul, et l'écrire dans l'interface | Le chiffrement de bout en bout actuel ne peut pas couvrir un calcul réparti. Le mode « un modèle entier sur une machine » garde son chiffrement. |
+| D7 | Sécurité des réponses | Deux machines au moins par bloc avant d'annoncer un modèle disponible | Sans ça, une machine qui part coupe toutes les réponses. |
+| D8 | Premier modèle en blocs | Gemma 4 31B seul au début, puis les autres | Un seul modèle à régler, le plus gros du catalogue, celui que presque personne ne tient seul. |
+| D9 | Taille d'un bloc | Environ 1 Go, toujours des couches entières | Assez petit pour une machine de 8 Go, assez gros pour ne pas multiplier les sauts réseau. À confirmer en E4. |
+| D10 | Machines d'essai | Tu fournis 3 vraies machines sur 2 connexions Internet pour J3, et 10 volontaires pour J5 | Je ne peux tester que sur ta machine. Sans vraies machines, pas de preuve à travers Internet. |
+| D11 | Le cache de 22 Go déjà sur ton disque | Le garder jusqu'à la tâche 2.5, qui lui met une limite | Il vient de mes tests du 2026-11-27 (`%LOCALAPPDATA%\\llama.cpp\\rpc`). Il resservira aux essais. Je le supprime si tu préfères. |
 
-Total : 25 à 37,5 jours de travail. Les phases 1 et 2 ne dépendent pas l'une de l'autre et peuvent avancer en alternance.
+## 4. Les jalons : ce que tu vois, et quand
 
-## Phase 0 : socle (fait)
+| Jalon | Ce que tu peux faire à la fin | Version publiée | Durée | Cumul |
+|---|---|---|---|---|
+| E. Essais | Lire un rapport : chaque hypothèse du plan est confirmée ou remplacée | aucune | 3,5 à 4,5 j | 4,5 j |
+| J1. Blocs à la carte entre amis | Choisir un modèle et un nombre de blocs dans l'interface, ne télécharger que ça, voir les blocs couverts | Tor6IA 0.3.0 | 5 à 7 j | 11,5 j |
+| J2. Bac à sable | Porter un bloc pour quelqu'un sans qu'il puisse toucher à ta machine | moteur 0.3.0 | 3,5 à 6 j | 17,5 j |
+| J3. Le réseau forme les groupes | Des machines derrière des box, sans se connaître, portent un modèle ensemble | Tor6IA 0.4.0, sur invitation | 7,5 à 11,5 j | 29 j |
+| J4. Paiement par bloc | Chaque machine payée pour sa part, une machine qui triche est exclue | Tor6IA 0.5.0 | 4 à 6 j | 35 j |
+| J5. Ouverture | La scène du chapitre 1, avec de vrais volontaires | Tor6IA 1.0.0 | 3 à 5 j | 40 j |
 
-- [x] 0.1 Répartir un modèle entre plusieurs serveurs de blocs avec llama.cpp. *2026-11-27 : Gemma 4 12B en 3 blocs, 3,3 tokens/s sur un portable sans carte graphique.*
-- [x] 0.2 Mesurer le coût du délai réseau. *2026-11-27 : coupé en deux, 3,3 tokens/s à 0 ms, 2,9 à 10 ms, 2,5 à 25 ms, 1,9 à 50 ms dans chaque sens.*
+Total : 26,5 à 40 jours de travail. Chaque jalon se termine par une démonstration que tu peux refaire toi-même.
+
+## 5. Ce qui existe déjà (phase 0, faite le 2026-11-27)
+
+- [x] 0.1 Un modèle réparti entre plusieurs serveurs de blocs avec llama.cpp. *Gemma 4 12B en 3 blocs, 3,3 tokens/s sur un portable sans carte graphique.*
+- [x] 0.2 Coût du délai réseau mesuré. *Coupé en deux : 3,3 tokens/s à 0 ms, 2,9 à 10 ms, 2,5 à 25 ms, 1,9 à 50 ms dans chaque sens.*
 - [x] 0.3 Une commande pour essayer, testée sur Windows, Linux et macOS à chaque version.
 - [x] 0.4 Branché dans Tor6IA 0.2.0 : groupe réglé à la main, découpage affiché, paiement à la machine de tête.
-- [x] 0.5 Tor6IA 0.2.1 : une demande attend une machine, et chaque modèle affiche ses demandes en attente.
+- [x] 0.5 Tor6IA 0.2.1 : une demande attend une machine, chaque modèle affiche ses demandes en attente.
+- [x] 0.6 Le plan d'un modèle se lit sans le télécharger. *Gemma 4 12B, 7,38 Go : l'en-tête de 15,8 Mo donne les 48 couches et leur taille exacte, et le registre public sert n'importe quel morceau du fichier à la demande.*
 
-Limites laissées par cette phase, reprises plus bas : serveur de blocs sans protection (phase 1), la tête envoie les couches aux autres (phase 2), adresses données à la main (phase 4).
+Faits vérifiés qui servent au plan :
 
-## Phase 1 : bac à sable
+- `llama-gguf-split` est fourni avec llama.cpp.
+- llama.cpp sait répartir par parts (`--tensor-split`) et placer des couches précises sur une machine précise (`--override-tensor`).
+- Le cache d'un serveur de blocs est un dossier de fichiers nommés par empreinte : `llama.cpp/rpc`.
+- Un serveur de blocs injoignable n'est pas signalé par llama.cpp : ses couches sont chargées sur la tête. Le moteur le détecte.
+- Sur les Mac virtuels de GitHub, la carte graphique arrête un serveur de blocs (« unsupported op »). Le processeur fonctionne.
 
-Le verrou. Un serveur de blocs exécute les ordres de calcul d'une autre machine, dans un programme C++ sans identification ni chiffrement. Tant que ce programme peut toucher aux fichiers ou au réseau de la machine, il ne doit servir que des gens de confiance.
+## 6. Étape E : les essais
 
-- [ ] **1.1 Essai : choisir la technique par système.** 1 à 2 j.
-  Candidats : bubblewrap et seccomp sous Linux, AppContainer avec jeton restreint sous Windows, `sandbox-exec` sous macOS. Solution de repli commune : compiler le serveur de blocs en WebAssembly.
-  **Fini quand** : sur chaque système, un serveur de blocs enfermé sert un vrai modèle, et un programme de test lancé à sa place échoue à lire un fichier personnel, à ouvrir une connexion sortante et à lancer un autre programme. Sans droits administrateur.
-  **Si ça échoue sous Windows** : porter des blocs y passe par WebAssembly ou WSL, et la durée de la phase est revue.
-- [ ] **1.2 Limites de ressources et arrêt garanti.** 1 j.
-  Plafond de mémoire égal aux blocs choisis, plafond de processeur, et arrêt du serveur de blocs quand le moteur s'arrête, même tué de force (Job Object sous Windows, `PR_SET_PDEATHSIG` sous Linux).
+Aucun produit fini ici. Chaque essai répond à une question par une mesure, dans `proof/`. À la fin, les durées et la route des jalons sont corrigées, et tu revalides.
+
+- [ ] **E1 Un serveur de blocs peut-il être enfermé, sans droits administrateur, sur chaque système ?** 1 à 2 j.
+  Linux : bubblewrap et seccomp. Windows : AppContainer avec jeton restreint. macOS : `sandbox-exec`. Repli commun : serveur de blocs compilé en WebAssembly.
+  **Fini quand** : sur chaque système, un serveur de blocs enfermé sert un vrai modèle, et un programme de test lancé à sa place échoue à lire un fichier personnel, à ouvrir une connexion sortante et à lancer un autre programme.
+  **Décide** : la technique de J2, et la décision D5.
+- [ ] **E2 Un serveur de blocs peut-il charger ses couches depuis son disque ?** 1 j.
+  Remplir le cache à l'avance avec les morceaux pris dans le fichier public, puis charger le modèle.
+  **Fini quand** : un modèle se charge sur deux serveurs de blocs avec moins de 1 % de ses octets envoyés par la tête, mesuré avec `proof/delayproxy`. La règle de calcul des noms de fichiers du cache est écrite ici.
+  **Si ça échoue** : fichier GGUF partiel reconstitué sur chaque machine avec `llama-gguf-split`.
+- [ ] **E3 Peut-on imposer quelle machine porte quelles couches ?** 0,5 j.
+  **Fini quand** : avec trois serveurs de blocs et les parts 1, 3 et 2, les couches affichées par le moteur suivent exactement le plan demandé, avec `--tensor-split` ou `--override-tensor`.
+- [ ] **E4 Combien d'octets et d'allers-retours par token entre deux blocs ?** 0,5 j.
+  Pour Gemma 4 12B et 31B, avec 2, 4 et 8 blocs.
+  **Fini quand** : le tableau est écrit ici. Il donne le débit que le relais doit tenir, donc son coût (D4), et le nombre de blocs au-delà duquel la vitesse tombe sous 1 token par seconde (D9).
+- [ ] **E5 De quoi la machine de tête a-t-elle besoin ?** 0,5 j.
+  À vérifier : le fichier entier sur son disque, ou seulement l'en-tête et sa part.
+  **Fini quand** : mémoire et disque mesurés pour la tête d'un modèle de 20 Go. Si la tête doit avoir tout le fichier, c'est écrit dans l'interface : « pour lancer une conversation sur ce modèle, 20 Go de disque ».
+- [ ] **E6 Rapport des essais.** 0,5 j.
+  **Fini quand** : ce fichier contient les résultats, les durées corrigées de J1 à J5 et les décisions qui ont changé. Tom revalide avant J1.
+
+## 7. Jalon J1 : les blocs à la carte, entre machines de confiance
+
+Tout ce qui se voit dans l'interface, sans encore ouvrir aux inconnus. Dépend de E2, E3, E5.
+
+- [ ] **1.1 Le plan d'un modèle dans le moteur.** 0,5 à 1 j.
+  `tor6ia-engine plan --model gemma4:31b` lit l'en-tête par morceaux depuis le registre et donne les couches, leur taille, et le découpage en blocs d'environ 1 Go. Sortie lisible et sortie JSON.
+  Fichiers : `gguf.go` (lecture de l'en-tête), `plan.go`.
+  **Fini quand** : le plan d'un modèle jamais téléchargé s'affiche en ayant reçu moins de 20 Mo, identique à celui lu dans le fichier complet. Testé sur les 5 modèles du catalogue.
+- [ ] **1.2 Télécharger seulement ses blocs.** 1 j.
+  `tor6ia-engine fetch --model gemma4:31b --blocks 3-5` prend les morceaux du fichier public, avec reprise après coupure et progression.
+  À vérifier : le registre ne donne qu'une empreinte pour le fichier entier. L'intégrité d'un morceau repose sur HTTPS vers le registre officiel, sauf si le cache vérifie l'empreinte de chaque couche (E2).
+  **Fini quand** : une machine qui porte 3 blocs sur 20 a téléchargé 3 vingtièmes du modèle, pas plus, et sert ces blocs.
+- [ ] **1.3 Un serveur de blocs qui annonce et tient un nombre de blocs.** 1 j.
+  `tor6ia-engine block --model gemma4:31b --blocks 3-5` : il ne charge que ça, avec un plafond de mémoire.
+  **Fini quand** : la mémoire utilisée correspond aux blocs choisis à 15 % près, mesurée.
+- [ ] **1.4 Le conseil.** 0,5 j.
+  Nombre de blocs conseillé à partir de la mémoire libre mesurée et de la carte graphique, avec la prudence déjà utilisée dans Tor6IA (1,5 fois la taille, 2 Go laissés au système).
+  **Fini quand** : sur trois machines de mémoires différentes (8, 16 et 32 Go), le nombre conseillé se charge sans que la machine se mette à ramer.
+- [ ] **1.5 La tête assemble selon les blocs annoncés.** 1 j.
+  Elle reçoit « machine A : blocs 1 à 3, machine B : blocs 4 à 9 » et place les couches exactement ainsi (E3). Elle refuse de démarrer s'il manque un bloc et dit lequel.
+  **Fini quand** : le découpage affiché est celui demandé, et un bloc manquant donne « il manque les blocs 10 à 12 ».
+- [ ] **1.6 L'écran « Porter des blocs » dans Tor6IA.** 1,5 à 2 j.
+  Choix du modèle, « pour ta machine : 3 blocs conseillés sur 20 », choix de 1 au maximum possible, téléchargement bloc par bloc, puis « 3 blocs chargés, 3 en service ». La barre du modèle montre les blocs couverts et ceux qui manquent.
+  Fichiers : `ui/index.html`, `split.go` dans Tor6IA.
+  **Fini quand** : une personne qui n'a jamais vu le projet porte des blocs sans aide, et l'affichage correspond à ce que le moteur rapporte.
+- [ ] **1.7 Démonstration J1.** 0,5 j.
+  **Fini quand** : sur ta machine, trois porteurs de blocs choisis à la main (2, 5 et 13 blocs) font répondre Gemma 4 31B, modèle qu'elle ne tient pas seule en mémoire. Vitesse notée ici. Tor6IA 0.3.0 publiée.
+
+## 8. Jalon J2 : le bac à sable
+
+Le verrou de l'ouverture. Dépend de E1.
+
+- [ ] **2.1 Le serveur de blocs enfermé, sur les trois systèmes.** 1,5 à 3 j.
+  Avec la technique choisie en E1. Il ne voit que son dossier de blocs. Aucun autre fichier, aucun autre programme, aucune connexion sortante.
+  **Fini quand** : les trois tentatives d'évasion de E1 échouent dans la pipeline, sur Windows, Linux et macOS.
+- [ ] **2.2 Limites de ressources et arrêt garanti.** 0,5 à 1 j.
+  Plafond de mémoire et de processeur. Le serveur de blocs s'arrête avec le moteur, même tué de force (Job Object sous Windows, `PR_SET_PDEATHSIG` sous Linux).
   **Fini quand** : moteur tué de force, aucun de ses processus ne reste. Corrige la limite connue du README.
-- [ ] **1.3 Aucune écoute sur le réseau.** 1 j.
-  Le serveur de blocs n'écoute que sur la machine elle-même. C'est le moteur qui parle au reste du monde et vérifie qui est en face.
+- [ ] **2.3 Aucune écoute sur le réseau.** 0,5 j.
+  Le serveur de blocs n'écoute que sur la machine elle-même. Le moteur parle au reste du monde et vérifie la clé de celui qui est en face.
   **Fini quand** : un balayage de ports depuis une autre machine ne trouve rien, et le groupe fonctionne toujours.
-- [ ] **1.4 Essais d'abus.** 1 à 2 j.
+- [ ] **2.4 Essais d'abus.** 0,5 à 1 j.
   Ordres malformés, tailles absurdes, demande de mémoire géante, connexion coupée au milieu.
   **Fini quand** : le serveur de blocs plante ou refuse, le bac à sable tient, le moteur le signale et le relance. Ces essais tournent dans la pipeline.
-- [ ] **1.5 Perte de vitesse mesurée.** 0,5 j.
-  **Fini quand** : tokens par seconde avec et sans bac à sable, sur les trois systèmes, écrits ici. Plus de 30 % de perte rouvre le choix de 1.1.
+- [ ] **2.5 Le cache de blocs sous contrôle.** 0,5 j.
+  Taille limitée, blocs inutilisés supprimés, tout effacé quand on arrête de porter un modèle ou qu'on désinstalle. Aujourd'hui il grossit sans limite (22 Go après une journée d'essais).
+  **Fini quand** : le dossier ne dépasse jamais la taille des blocs portés, vérifié après dix changements de modèle.
+- [ ] **2.6 Perte de vitesse mesurée.** 0,5 j.
+  **Fini quand** : tokens par seconde avec et sans bac à sable, sur les trois systèmes, écrits ici. Plus de 30 % de perte rouvre le choix de E1.
 
-## Phase 2 : blocs téléchargeables
+## 9. Jalon J3 : le réseau forme les groupes
 
-Aujourd'hui la machine de tête lit le modèle entier et envoie leurs couches aux autres. Pour que chacun ne télécharge que sa part, il n'y a rien à prédécouper ni à héberger : le fichier public du modèle suffit.
+Dépend de J1, J2 et E4. Rien ici n'est activé pour le public : sur invitation seulement.
 
-- [x] **2.0 Essai : lire le plan d'un modèle sans le télécharger, et n'en prendre qu'un morceau.** *2026-11-27, Gemma 4 12B, 7,38 Go : le registre public d'Ollama sert n'importe quel morceau du fichier à la demande (1 Mo pris au milieu en 0,9 s). L'en-tête, 15,8 Mo soit 0,21 % du fichier, donne le plan exact : 48 couches de 126 à 151 Mo, plus 826 Mo hors couches. Coupé en trois : 2,19, 2,13 et 2,22 Go.*
-  Conséquences : le serveur ne stocke aucun modèle, ajouter un modèle au catalogue ne demande aucune mise à jour des programmes, et les anciennes tâches « format prédécoupé » et « hébergement des blocs » sont supprimées.
-- [ ] **2.1 Essai : comment un serveur de blocs peut charger ses couches depuis son disque.** 1 j.
-  À vérifier : le cache du serveur de blocs (`-c`) est indexé par l'empreinte de chaque couche. Si on le remplit à l'avance avec les morceaux téléchargés, la tête n'envoie plus rien.
-  **Fini quand** : un modèle se charge sur deux serveurs de blocs avec moins de 1 % de ses octets transférés, mesuré avec `proof/delayproxy`.
-  **Si ça échoue** : reconstituer sur chaque machine un fichier GGUF partiel avec `gguf-split`.
-- [ ] **2.2 Le plan dans le moteur.** 0,5 à 1 j.
-  `tor6ia-engine plan --model gemma4:31b` lit l'en-tête par morceaux depuis le registre et affiche les couches, leur taille et un découpage en blocs d'environ 1 Go.
-  **Fini quand** : le plan d'un modèle jamais téléchargé s'affiche en ayant reçu moins de 20 Mo, et il est identique à celui lu dans le fichier complet.
-- [ ] **2.3 Télécharger seulement ses couches.** 1 j.
-  `tor6ia-engine fetch --model gemma4:12b --blocks 3-5` prend les morceaux du fichier public qui correspondent, avec reprise après coupure.
-  À vérifier : le registre ne donne qu'une empreinte pour le fichier entier. L'intégrité d'un morceau repose donc sur la connexion HTTPS au registre officiel, sauf si le cache de 2.1 vérifie l'empreinte de chaque couche.
-  **Fini quand** : une machine qui porte 3 blocs sur 8 a téléchargé 3 huitièmes du modèle, pas plus, et sert ces blocs.
-- [ ] **2.4 Rôle de la machine de tête.** 0,5 j.
-  Elle porte ce qui est hors couches (826 Mo pour Gemma 4 12B). À vérifier : a-t-elle besoin du fichier entier sur son disque, ou seulement de l'en-tête et de sa part.
-  **Fini quand** : la règle est écrite ici avec la mémoire et le disque mesurés pour la tête d'un modèle de 20 Go.
-
-## Phase 3 : choix des blocs dans l'interface
-
-- [ ] **3.1 Répartition par parts choisies.** 0,5 j.
-  À vérifier : `--tensor-split` de llama.cpp s'applique aux serveurs de blocs distants.
-  **Fini quand** : avec les parts 1, 3 et 2, les couches affichées suivent ces proportions.
-- [ ] **3.2 Le conseil.** 0,5 j.
-  Nombre de blocs conseillé à partir de la mémoire libre mesurée, avec la même prudence que la règle actuelle de Tor6IA (1,5 fois la taille, 2 Go laissés au système).
-  **Fini quand** : sur trois machines de mémoires différentes, le nombre conseillé se charge sans que la machine se mette à ramer.
-- [ ] **3.3 L'écran « Porter des blocs » dans Tor6IA.** 1 à 2 j.
-  Choix du modèle, « pour ta machine : 3 blocs conseillés », choix de 1 au maximum possible, téléchargement bloc par bloc, puis « 3 blocs chargés, 3 en service ».
-  **Fini quand** : une personne qui n'a jamais vu le projet porte des blocs sans aide, et l'affichage correspond à ce que le moteur rapporte.
-
-## Phase 4 : relais et groupes formés par le réseau
-
-- [ ] **4.1 Essai : combien d'octets par token entre deux blocs.** 0,5 j.
-  **Fini quand** : octets par token et par frontière de bloc mesurés pour Gemma 4 12B et 31B. Ce chiffre fixe le débit que le relais doit tenir et son coût.
-- [ ] **4.2 Choisir où tourne le relais.** 0,5 j.
-  Pas sur le serveur actuel, partagé avec d'autres sites.
-  **Fini quand** : serveur choisi, coût mensuel et débit garanti écrits ici.
-- [ ] **4.3 Le relais.** 2 à 3 j.
-  Chaque machine garde une connexion sortante vers le relais, qui fait passer les données entre la tête et les blocs. Identité par la clé du compte, débit plafonné par compte.
+- [ ] **3.1 Le serveur du relais.** 0,5 j.
+  Choisi d'après E4, loué, déployé avec `deploy.ps1` adapté. Pas le VPS actuel.
+  **Fini quand** : coût mensuel et débit garanti écrits ici, relais joignable en HTTPS.
+- [ ] **3.2 Le relais.** 2 à 3 j.
+  Chaque machine garde une connexion sortante vers le relais, qui fait passer les données entre la tête et les blocs. Identité par la clé du compte, débit plafonné par compte, aucune donnée gardée.
+  Fichiers : `relay.go` dans le moteur, un service `tor6ia-relay` sur le serveur.
   **Fini quand** : un groupe de trois machines derrière trois box différentes répond, sans aucun port ouvert.
-- [ ] **4.4 Connexion directe quand c'est possible.** 1 à 2 j.
+- [ ] **3.3 Connexion directe quand c'est possible.** 1 à 2 j.
   Même réseau local ou port joignable : les machines se parlent sans passer par le relais.
   **Fini quand** : deux machines du même réseau échangent en direct, vérifié par le compteur d'octets du relais qui reste à zéro.
-- [ ] **4.5 Registre des blocs dans le coordinateur.** 1 à 2 j.
-  Qui porte quels blocs de quel modèle. Le coordinateur lit lui-même le plan de chaque modèle du catalogue (16 Mo, voir 2.0) : il ne stocke aucun modèle. Chaque modèle affiche « blocs couverts : 6 sur 8, il manque 2 machines ».
-  **Fini quand** : l'interface de Tor6IA affiche ce compte en direct, et il est juste quand des machines arrivent et partent.
-- [ ] **4.6 Assemblage d'une chaîne.** 1 à 2 j.
-  Pour une demande, le coordinateur choisit une machine par bloc, la plus rapide disponible, et une tête qui a le fichier.
+- [ ] **3.4 Registre des blocs dans le coordinateur.** 1 à 1,5 j.
+  Qui porte quels blocs de quel modèle. Le coordinateur lit lui-même le plan de chaque modèle du catalogue (16 Mo) : il ne stocke aucun modèle, et un nouveau modèle ne demande aucune mise à jour des programmes.
+  **Fini quand** : l'interface affiche « blocs couverts : 14 sur 20, il manque 2 machines » en direct, et le compte reste juste quand des machines arrivent et partent.
+- [ ] **3.5 Le réseau propose à chacun les blocs qui manquent.** 0,5 j.
+  Quand tu choisis de porter 3 blocs, le coordinateur te donne les 3 les moins couverts.
+  **Fini quand** : dix machines qui choisissent chacune 2 blocs couvrent les 20 blocs une fois, pas dix fois les deux premiers.
+- [ ] **3.6 Assemblage d'une chaîne.** 1 à 1,5 j.
+  Pour une demande, le coordinateur choisit une machine par bloc, la plus rapide disponible, et une tête (E5).
   **Fini quand** : une demande sur un modèle que personne ne porte en entier reçoit sa réponse, calculée par une chaîne que le réseau a formée seul.
-- [ ] **4.7 Reprise quand une machine part.** 1 à 2 j.
-  Chaque bloc doit avoir au moins deux porteurs avant que le modèle soit annoncé disponible. Une machine part : la chaîne se reforme avec l'autre porteur.
+- [ ] **3.7 Reprise quand une machine part.** 1 à 2 j.
+  Un modèle n'est annoncé disponible que si chaque bloc a deux porteurs (D7). Une machine part : la chaîne se reforme avec l'autre porteur.
   **Fini quand** : machine débranchée au milieu d'une réponse, la réponse se termine, délai de reprise mesuré.
-- [ ] **4.8 Essai réel.** 1 j.
-  **Fini quand** : au moins trois vraies machines, sur au moins deux connexions Internet différentes, portent un modèle qu'aucune ne tient seule. Vitesse mesurée et écrite ici.
+- [ ] **3.8 Démonstration J3.** 0,5 j.
+  **Fini quand** : au moins trois vraies machines (D10), sur au moins deux connexions Internet, portent un modèle qu'aucune ne tient seule. Vitesse mesurée et écrite ici. Tor6IA 0.4.0 publiée, blocs publics sur invitation.
 
-## Phase 5 : paiement et triche, par bloc
+## 10. Jalon J4 : paiement et triche, par bloc
 
-- [ ] **5.1 Paiement partagé dans le registre.** 1 à 2 j.
+Dépend de J3.
+
+- [ ] **4.1 Paiement partagé dans le registre.** 1 à 2 j.
   Une réponse paie plusieurs comptes, chacun selon ses couches et les tokens calculés. Toujours signé par celui qui paie, toujours à somme nulle.
+  Fichiers : `ledger.go`, `proto.go` dans Tor6IA.
   **Fini quand** : `tor6ia audit` vérifie un registre contenant des paiements partagés, et refuse une part modifiée.
-- [ ] **5.2 Détecter une machine qui renvoie n'importe quoi.** 2 à 3 j.
+- [ ] **4.2 Détecter une machine qui renvoie n'importe quoi.** 2 à 3 j.
   Deux porteurs du même bloc reçoivent la même entrée : leurs sorties doivent concorder. Tests à réponse connue passés par une chaîne précise.
   **Fini quand** : une machine modifiée pour renvoyer du bruit est exclue en moins de dix demandes, sans exclure une machine honnête sur mille demandes.
-- [ ] **5.3 Ce que voit chaque machine.** 0,5 j.
-  Chaque porteur voit passer les données internes du calcul. Le chiffrement de bout en bout actuel ne couvre pas les blocs.
-  **Fini quand** : c'est écrit clairement dans l'interface et la documentation, et le mode « groupe de confiance » reste disponible pour qui veut garder ses questions entre proches.
+- [ ] **4.3 Ce que voit chaque machine, écrit clairement.** 0,5 j.
+  Avant de poser une question à un modèle en blocs, l'interface dit que les machines de la chaîne voient passer les données du calcul (D6).
+  **Fini quand** : le message est dans l'interface et la documentation, et le mode « groupe de confiance » reste disponible.
+- [ ] **4.4 Démonstration J4.** 0,5 j.
+  **Fini quand** : une réponse sur un modèle en blocs, les crédits de chaque porteur vérifiés à la main contre ses couches. Tor6IA 0.5.0 publiée.
 
-## Phase 6 : ouverture
+## 11. Jalon J5 : ouverture
 
-- [ ] **6.1 Essai avec des volontaires.** 2 à 3 j. **Fini quand** : dix machines de volontaires portent un modèle pendant une semaine, pannes et vitesses notées ici.
-- [ ] **6.2 Limites et réglages par défaut.** 0,5 à 1 j. **Fini quand** : débit, mémoire et nombre de blocs par défaut sont fixés à partir des mesures de 6.1.
-- [ ] **6.3 Activé pour tous.** 0,5 à 1 j. **Fini quand** : une installation neuve de Tor6IA propose de porter des blocs, et la pipeline le teste sur les trois systèmes.
+Dépend de tout ce qui précède.
 
-## Ce qui peut faire dérailler le plan
+- [ ] **5.1 Essai avec des volontaires.** 2 à 3 j.
+  **Fini quand** : dix machines de volontaires (D10) portent un modèle pendant une semaine. Pannes, vitesses et débit du relais notés ici.
+- [ ] **5.2 Limites et réglages par défaut.** 0,5 à 1 j.
+  **Fini quand** : débit, mémoire et nombre de blocs par défaut sont fixés à partir des mesures de 5.1.
+- [ ] **5.3 Activé pour tous.** 0,5 à 1 j.
+  **Fini quand** : une installation neuve de Tor6IA propose de porter des blocs, la pipeline le teste sur les trois systèmes, et la scène du chapitre 1 est jouée et notée dans le journal. Tor6IA 1.0.0 publiée.
+
+## 12. Règles de travail
+
+- **Un essai avant chaque construction.** Aucune phase ne démarre sur une hypothèse non mesurée.
+- **Rien d'exposé au public avant J2.** Jusque-là, les blocs ne tournent qu'entre machines choisies à la main.
+- **Le réseau actuel ne casse jamais.** Les blocs sont un second moteur à côté d'Ollama. Un modèle entier sur une machine continue de marcher tel quel, avec son chiffrement.
+- **Chaque version du moteur est épinglée par empreinte dans Tor6IA.** Une nouvelle version n'atteint les utilisateurs qu'après ses propres tests.
+- **Ce fichier d'abord.** Une tâche finie est cochée ici avec sa mesure avant de passer à la suivante.
+- **Les mauvaises nouvelles tout de suite.** Un essai qui échoue est écrit dans le journal le jour même, avec la route de repli.
+
+## 13. Ce dont j'ai besoin de toi
+
+| Quand | Quoi |
+|---|---|
+| Maintenant | Valider les décisions D1 à D11 |
+| Fin de l'étape E | Relire le rapport des essais et revalider les durées |
+| Avant J3 | Louer le serveur du relais (D4), ou me dire lequel utiliser |
+| Pour J3 | 3 vraies machines sur 2 connexions Internet (D10) |
+| Pour J5 | 10 volontaires pendant une semaine |
+| N'importe quand | Changer le mot de passe root du VPS, exposé dans une conversation |
+
+## 14. Ce qui peut faire dérailler le plan
 
 | Risque | Signe | Réponse prévue |
 |---|---|---|
-| Pas de bac à sable sans droits administrateur sous Windows | 1.1 échoue | WebAssembly ou WSL pour porter des blocs sous Windows |
-| Le cache des couches ne permet pas le préchargement | 2.1 échoue | Fichier GGUF partiel reconstitué par `gguf-split` |
-| Le registre public cesse de servir des morceaux de fichier | 2.3 reçoit le fichier entier | Autre source publique du même fichier, vérifiée par son empreinte |
-| Trop d'octets par token pour un relais abordable | 4.1 donne un chiffre trop haut | Connexion directe obligatoire, le relais ne sert qu'à se trouver |
-| Trop lent à travers plusieurs pays | 4.8 sous 1 token par seconde | Chaînes formées par proximité, modèles limités en nombre de blocs |
+| Pas de bac à sable sans droits administrateur sous Windows | E1 échoue sous Windows | Porter des blocs sous Windows passe par WSL (D5) |
+| Le cache ne permet pas de précharger les couches | E2 échoue | Fichier GGUF partiel reconstitué par `llama-gguf-split` |
+| On ne peut pas imposer le placement des couches | E3 échoue | Blocs de taille égale, attribués dans l'ordre d'arrivée des machines |
+| Trop d'octets par token pour un relais abordable | E4 donne un chiffre trop haut | Connexion directe obligatoire, le relais ne sert qu'à se trouver |
+| La tête doit avoir tout le fichier | E5 le confirme | Seules les machines avec assez de disque lancent une conversation, les autres portent des blocs |
+| Trop lent à travers plusieurs pays | 3.8 sous 1 token par seconde | Chaînes formées par proximité, nombre de blocs limité par modèle |
+| Le registre public cesse de servir des morceaux de fichier | 1.2 reçoit le fichier entier | Autre source publique du même fichier, vérifiée par son empreinte |
 | llama.cpp change son protocole | une nouvelle version casse les essais | La version reste épinglée, montée de version testée à part |
 
-## Journal
+## 15. Journal
 
-- 2026-11-27 : plan écrit. Phase 0 terminée le même jour. Rien de commencé au-delà.
-- 2026-11-27 : essai 2.0 fait sur une question de Tom (« peut-on découper sans télécharger ? »). Oui : plan exact dans l'en-tête, morceaux servis à la demande. Phase 2 allégée de deux tâches, plus aucun hébergement de modèles à prévoir.
+- 2026-11-27 : phase 0 terminée. Premier plan écrit.
+- 2026-11-27 : essai 0.6 fait sur une question de Tom (« peut-on découper sans télécharger ? »). Oui : plan exact dans l'en-tête, morceaux servis à la demande. Plus aucun hébergement de modèles à prévoir.
+- 2026-11-27 : plan complet réécrit avec décisions à valider, jalons et étape d'essais. Découvert pendant la préparation : le cache des serveurs de blocs occupe 22 Go après une journée d'essais, d'où la tâche 2.5. En attente de la validation de Tom.
