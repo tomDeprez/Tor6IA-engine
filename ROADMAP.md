@@ -4,9 +4,9 @@ But : chaque personne choisit un modèle et un nombre de blocs dans l'interface 
 
 Ce fichier est la référence. Il est mis à jour à chaque tâche terminée : case cochée, date, résultat mesuré, décision prise.
 
-**État : plan validé par Tom le 2026-11-27. Travail en cours.**
+**État : tout ce que je peux construire et tester seul est fait (2026-11-27). Il reste ton essai avec des gens (5.1), puis les réglages qu'il imposera et la version 1.0.0.**
 
-**Prochaine tâche : 5.3**
+**Prochaine tâche : 5.1, ton essai. Le guide est dans Tor6IA : `docs/ESSAI.md`.**
 
 Dernière mise à jour : 2026-11-27
 
@@ -58,7 +58,7 @@ Validées par Tom le 2026-11-27, avec deux changements : le relais tourne sur le
 | J2. Bac à sable | Porter un bloc pour quelqu'un sans qu'il puisse toucher à ta machine | moteur 0.2.3 | **fait** | |
 | J3. Le réseau forme les groupes | Des machines derrière des box, sans se connaître, portent un modèle ensemble | Tor6IA 0.4.0 | **fait**, reste ton test à plusieurs machines | |
 | J4. Paiement par bloc | Chaque machine payée pour sa part, une machine qui triche est exclue | Tor6IA 0.5.0 | **fait** | |
-| J5. Ouverture | La scène du chapitre 1, avec de vrais volontaires | Tor6IA 1.0.0 | 3 à 5 j | 40 j |
+| J5. Ouverture | La scène du chapitre 1, avec de vrais volontaires | Tor6IA 1.0.0 | scène jouée sur un PC, **reste ton essai** | |
 
 Total : 26,5 à 40 jours de travail. Chaque jalon se termine par une démonstration que tu peux refaire toi-même.
 
@@ -254,11 +254,11 @@ Dépend de J3.
 
 Dépend de tout ce qui précède.
 
-- [ ] **5.1 Essai avec des volontaires.** 2 à 3 j.
+- [ ] **5.1 Essai avec des volontaires.** *À faire par Tom (D10). Le guide est écrit : `docs/ESSAI.md` dans Tor6IA dit quoi faire, quoi noter, et ce qui n'a jamais été testé.*
   **Fini quand** : dix machines de volontaires (D10) portent un modèle pendant une semaine. Pannes, vitesses et débit du relais notés ici.
-- [ ] **5.2 Limites et réglages par défaut.** 0,5 à 1 j.
+- [~] **5.2 Limites et réglages par défaut.** *Fixés le 2026-11-27 à partir de mes mesures, à revoir après 5.1. Relais : 16 Mbit/s par paire, 24 Mbit/s en tout, 20 Go par jour, 128 Mo de mémoire. Porteur : mémoire plafonnée à 1,5 fois ses blocs plus 1 Go, la moitié des cœurs. Blocs conseillés : (mémoire libre moins 2 Go) divisée par 1,3 fois la taille d'un bloc. Chaîne : 2 porteurs par bloc avant de la former, un porteur silencieux 40 secondes est retiré, tête payée 2 parts sur 10. Exclusion : 2 doutes, 24 heures. Reste, à décider avec les résultats de 5.1 : une tête garde la ligne des porteurs qu'on lui a donnés et peut s'en servir hors du réseau ; et le découvert de 200 crédits ne paie que 20 tokens de Gemma 4 31B.*
   **Fini quand** : débit, mémoire et nombre de blocs par défaut sont fixés à partir des mesures de 5.1.
-- [ ] **5.3 Activé pour tous.** 0,5 à 1 j.
+- [~] **5.3 Activé pour tous.** *Fait le 2026-11-27, sauf la version 1.0.0. Une installation neuve propose de porter des blocs (« Même une petite machine peut porter quelques blocs d'un gros modèle… », ou « Le réseau cherche des porteurs pour… »). La pipeline de Tor6IA 0.5.0 installe le programme sur Windows, Linux et macOS, lui fait porter un bloc de Llama 3.2 3B téléchargé seul et servi enfermé : verte sur les trois. La scène du chapitre 1 est jouée sur un PC, voir le journal. La version 1.0.0 attend l'essai de Tom : je ne nomme pas « 1.0 » un réseau qu'aucun inconnu n'a encore utilisé.*
   **Fini quand** : une installation neuve de Tor6IA propose de porter des blocs, la pipeline le teste sur les trois systèmes, et la scène du chapitre 1 est jouée et notée dans le journal. Tor6IA 1.0.0 publiée.
 
 ## 12. Règles de travail
@@ -274,7 +274,9 @@ Dépend de tout ce qui précède.
 
 | Quand | Quoi |
 |---|---|
-| Quand tout est fini | Tester avec des gens et dire ce qui marche ou non (D10) |
+| Maintenant | Tester avec des gens en suivant `docs/ESSAI.md` de Tor6IA, et dire ce qui marche ou non (D10) |
+| Après l'essai | Décider avec moi : le découvert de 200 crédits face au prix des gros modèles, et la version 1.0.0 |
+| Quand tu veux | Activer le déploiement automatique : `gh secret set DEPLOY_SSH_KEY` et `gh variable set DEPLOY_SERVER` (commandes dans le README de Tor6IA) |
 | N'importe quand | Changer le mot de passe root du VPS, exposé dans une conversation |
 
 ## 14. Ce qui peut faire dérailler le plan
@@ -292,6 +294,15 @@ Dépend de tout ce qui précède.
 
 ## 15. Journal
 
+- 2026-11-27 : **la scène du chapitre 1, jouée avec ce qu'un PC permet.** Gemma 4 12B (6 blocs de 1 Go) à la place de Gemma 4 31B, six nœuds sur une machine de 32 Go, coordinateur d'essai, un porteur par bloc.
+  1. Chaque machine lit le plan : « 6 blocs, 6 conseillés » avec 12 Go libres, « 5 conseillés » avec 9 Go.
+  2. Trois machines prennent 2 blocs chacune. Celle sous Linux, sans Ollama, télécharge ses blocs 3-4 au registre : 2,12 Go sur 6,87, en 163 secondes.
+  3. Le réseau affiche « 4 blocs sur 6 portés », puis 6 sur 6 ; une machine se propose pour tenir les conversations et charge la chaîne en 97 secondes : « chaîne formée ».
+  4. Une quatrième machine pose une question : « Un réseau pair à pair (peer-to-peer) est un modèle de réseau informatique où chaque ordinateur est connecté directement à un autre… », 44 tokens en 42 secondes (la machine porte alors les six nœuds ; seule, la même chaîne fait 3 tokens par seconde).
+  5. Le porteur des blocs 5-6 est éteint 19 secondes après le début d'une réponse. Une autre machine qui porte ces blocs le remplace, la réponse « 1, 2, … 15 » se termine dans l'ordre et sans trou, en 177 secondes : 35 pour remarquer le départ, 100 pour recharger le modèle.
+  6. Crédits : première réponse, 200 crédits, 53 à chacun des trois porteurs (2 blocs chacun) et 41 à la tête. Après la reprise, le remplaçant est payé à la place du porteur parti. Registre vérifié par `tor6ia audit` : 6 écritures, 288 crédits dus, somme nulle. Les serveurs de blocs tournaient enfermés.
+  Ce que la scène demandait et que je n'ai pas pu faire : trois personnes dans trois pays, des portables de 8 à 16 Go, Gemma 4 31B. C'est l'essai de Tom.
+- 2026-11-27 : Tor6IA 0.5.0 et moteur 0.2.6 publiés, coordinateur 0.5.0 et relais déployés. Vérifié sur le réseau public : chaîne Windows et Linux, paiement partagé écrit au registre public (écriture 19), avertissement de vie privée affiché.
 - 2026-11-27 : **J4 terminé, et 3.9 avec.** Paiement partagé, tricheur exclu, avertissement de vie privée, chargement par empreintes. Trois défauts trouvés en testant pour de vrai : un conflit d'identifiants dans l'interface de la version 0.4.0 (le bouton « Tenir ces conversations » ne répondait pas), une tête qui recevait des tests pendant qu'elle rechargeait sa chaîne et se faisait bannir à tort, et une tête qui répondait seule quand sa chaîne tombait, ce qui aurait payé des porteurs pour rien. Tous corrigés, avec un test qui empêche le premier de revenir.
 - 2026-11-27 : **J3 terminé. Tor6IA 0.4.0, moteur 0.2.4, coordinateur et relais déployés sur le VPS.** Le réseau forme les chaînes seul et reprend quand une machine part. Deux choix faits en route. Les lignes des porteurs passent par le coordinateur, qui les donne à la tête qu'il a choisie : rien à échanger à la main, mais une tête peut garder une ligne et s'en servir hors du réseau, à traiter avant l'ouverture (5.2). Une machine sans Ollama, ou trop petite pour un modèle entier, peut porter des blocs : c'est le cas d'usage du projet. 3.9 devient nécessaire et change de méthode.
 - 2026-11-27 : **J1 et J2 terminés. Tor6IA 0.3.0 et moteur 0.2.3 publiés, pipelines vertes sur Windows, Linux et macOS.** Chacun peut porter des blocs depuis l'interface. Le serveur de blocs est enfermé, plafonné en mémoire, invisible du réseau, relancé s'il tombe, et son cache ne dépasse pas ses blocs. Les groupes sont encore formés à la main : c'est J3 qui les fait former par le réseau. Décision prise en route : la ligne d'un porteur porte un secret, et les deux clés du lien en sont tirées, ce qui évite d'échanger des clés à la main.
