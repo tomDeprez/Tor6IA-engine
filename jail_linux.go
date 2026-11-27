@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"unsafe"
 )
@@ -72,7 +73,11 @@ func startJailed(j Jail, front, program string, args []string) (*jailProc, error
 	if j.Port != 0 {
 		if err := waitPort(dialable(front), p.Done); err != nil {
 			p.Stop()
-			return nil, fmt.Errorf("%w\n%s", err, tailFile(logPath, 8))
+			said := tailFile(logPath, 8)
+			if strings.Contains(said, "libgomp") {
+				said += "\nThis system lacks the OpenMP library llama.cpp needs. On Debian and Ubuntu: sudo apt install libgomp1"
+			}
+			return nil, fmt.Errorf("%w\n%s", err, said)
 		}
 	}
 	return p, nil
