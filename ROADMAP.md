@@ -6,7 +6,7 @@ Ce fichier est la référence. Il est mis à jour à chaque tâche terminée : c
 
 **État : plan validé par Tom le 2026-11-27. Travail en cours.**
 
-**Prochaine tâche : E1**
+**Prochaine tâche : E2**
 
 Dernière mise à jour : 2026-11-27
 
@@ -55,7 +55,7 @@ Validées par Tom le 2026-11-27, avec deux changements : le relais tourne sur le
 |---|---|---|---|---|
 | E. Essais | Lire un rapport : chaque hypothèse du plan est confirmée ou remplacée | aucune | 3,5 à 4,5 j | 4,5 j |
 | J1. Blocs à la carte entre amis | Choisir un modèle et un nombre de blocs dans l'interface, ne télécharger que ça, voir les blocs couverts | Tor6IA 0.3.0 | 5 à 7 j | 11,5 j |
-| J2. Bac à sable | Porter un bloc pour quelqu'un sans qu'il puisse toucher à ta machine | moteur 0.3.0 | 3,5 à 6 j | 17,5 j |
+| J2. Bac à sable | Porter un bloc pour quelqu'un sans qu'il puisse toucher à ta machine | moteur 0.3.0 | 2 à 3 j restants | 17,5 j |
 | J3. Le réseau forme les groupes | Des machines derrière des box, sans se connaître, portent un modèle ensemble | Tor6IA 0.4.0, sur invitation | 7,5 à 11,5 j | 29 j |
 | J4. Paiement par bloc | Chaque machine payée pour sa part, une machine qui triche est exclue | Tor6IA 0.5.0 | 4 à 6 j | 35 j |
 | J5. Ouverture | La scène du chapitre 1, avec de vrais volontaires | Tor6IA 1.0.0 | 3 à 5 j | 40 j |
@@ -83,10 +83,16 @@ Faits vérifiés qui servent au plan :
 
 Aucun produit fini ici. Chaque essai répond à une question par une mesure, dans `proof/`. À la fin, les durées et la route des jalons sont corrigées, et tu revalides.
 
-- [ ] **E1 Un serveur de blocs peut-il être enfermé, sans droits administrateur, sur chaque système ?** 1 à 2 j.
+- [x] **E1 Un serveur de blocs peut-il être enfermé, sans droits administrateur, sur chaque système ?** *Fait le 2026-11-27 : oui, sur les trois.*
   Linux : bubblewrap et seccomp. Windows : AppContainer avec jeton restreint. macOS : `sandbox-exec`. Repli commun : serveur de blocs compilé en WebAssembly.
   **Fini quand** : sur chaque système, un serveur de blocs enfermé sert un vrai modèle, et un programme de test lancé à sa place échoue à lire un fichier personnel, à ouvrir une connexion sortante et à lancer un autre programme.
   **Décide** : la technique de J2, et la décision D5.
+  **Résultat** : la sonde `tor6ia-engine jail-test` lit un fichier personnel, se connecte à Internet et lance un programme quand elle est libre ; enfermée, les trois sont refusés, sur Windows 11, Windows Server, Debian 12 (noyau 6.1), Ubuntu et macOS, sans droits administrateur. La démo tourne enfermée sur les trois systèmes dans la pipeline.
+  - Windows : AppContainer sans aucune capacité, plus un « job » limité à deux processus. Un AppContainer ne peut pas être joint par le réseau, même depuis la machine : un petit pont tourne dedans et fait passer les connexions par son entrée et sa sortie (`mux.go`). WSL n'est pas nécessaire : **D5 est sans objet.**
+  - Linux : Landlock pour les fichiers, filtre seccomp pour les connexions, `no_new_privs`. Fonctionne là où les espaces de noms sans privilèges sont interdits.
+  - macOS : profil `sandbox-exec`.
+  - Pièges rencontrés : sur Windows Server un programme enfermé ne peut pas ouvrir `NUL`, il faut lui donner une entrée explicite. Sur Linux, llama.cpp demande `libgomp1`, absent des systèmes minimaux.
+  - Coût mesuré sur Windows, Gemma 4 E2B en deux blocs : 2,1 tokens/s enfermé contre 3,1 libre, soit 32 % de perte, à la limite fixée en 2.6.
 - [ ] **E2 Un serveur de blocs peut-il charger ses couches depuis son disque ?** 1 j.
   Remplir le cache à l'avance avec les morceaux pris dans le fichier public, puis charger le modèle.
   **Fini quand** : un modèle se charge sur deux serveurs de blocs avec moins de 1 % de ses octets envoyés par la tête, mesuré avec `proof/delayproxy`. La règle de calcul des noms de fichiers du cache est écrite ici.
@@ -134,10 +140,10 @@ Tout ce qui se voit dans l'interface, sans encore ouvrir aux inconnus. Dépend d
 
 Le verrou de l'ouverture. Dépend de E1.
 
-- [ ] **2.1 Le serveur de blocs enfermé, sur les trois systèmes.** 1,5 à 3 j.
+- [x] **2.1 Le serveur de blocs enfermé, sur les trois systèmes.** *Fait le 2026-11-27 avec E1 : `tor6ia-engine block` et la démo enferment par défaut, `--unlocked` rend l'ancien comportement. Les évasions sont testées dans la pipeline sur les trois systèmes.*
   Avec la technique choisie en E1. Il ne voit que son dossier de blocs. Aucun autre fichier, aucun autre programme, aucune connexion sortante.
   **Fini quand** : les trois tentatives d'évasion de E1 échouent dans la pipeline, sur Windows, Linux et macOS.
-- [ ] **2.2 Limites de ressources et arrêt garanti.** 0,5 à 1 j.
+- [~] **2.2 Limites de ressources et arrêt garanti.** 0,5 j restant. *Fait le 2026-11-27 : les programmes lancés par le moteur s'arrêtent avec lui, même tué de force (job sous Windows, `PR_SET_PDEATHSIG` sous Linux). Reste : le plafond de mémoire branché sur les blocs choisis, l'équivalent sous macOS, et le test dans la pipeline.*
   Plafond de mémoire et de processeur. Le serveur de blocs s'arrête avec le moteur, même tué de force (Job Object sous Windows, `PR_SET_PDEATHSIG` sous Linux).
   **Fini quand** : moteur tué de force, aucun de ses processus ne reste. Corrige la limite connue du README.
 - [ ] **2.3 Aucune écoute sur le réseau.** 0,5 j.
@@ -242,5 +248,6 @@ Dépend de tout ce qui précède.
 
 - 2026-11-27 : phase 0 terminée. Premier plan écrit.
 - 2026-11-27 : essai 0.6 fait sur une question de Tom (« peut-on découper sans télécharger ? »). Oui : plan exact dans l'en-tête, morceaux servis à la demande. Plus aucun hébergement de modèles à prévoir.
+- 2026-11-27 : **E1 réussi, et 2.1 faite dans la foulée.** Le bac à sable existe sur Windows, Linux et macOS sans droits administrateur. La route de repli WSL est abandonnée. Trois allers-retours avec la pipeline ont été nécessaires pour Windows Server (périphérique `NUL` interdit dans la boîte).
 - 2026-11-27 : plan validé par Tom. Consigne : tout faire sans s'arrêter, mettre ce fichier à jour à chaque tâche, essais sur le VPS, test final par Tom avec des gens. D4 et D10 changées en conséquence.
 - 2026-11-27 : plan complet réécrit avec décisions à valider, jalons et étape d'essais. Découvert pendant la préparation : le cache des serveurs de blocs occupe 22 Go après une journée d'essais, d'où la tâche 2.5. En attente de la validation de Tom.
