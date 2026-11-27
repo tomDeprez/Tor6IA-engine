@@ -52,9 +52,10 @@ func blockCommand(dir, listen string, threads int, device string) (*exec.Cmd, er
 // Head is the machine that holds the conversation: it runs the model across the block servers
 // and serves an OpenAI-compatible API.
 type Head struct {
-	cmd *exec.Cmd
-	URL string
-	log string
+	cmd    *exec.Cmd
+	URL    string
+	log    string
+	exited chan error // receives once, when llama-server stops by itself
 }
 
 func startHead(dir, model string, blocks []string, port, threads int) (*Head, error) {
@@ -73,8 +74,8 @@ func startHead(dir, model string, blocks []string, port, threads int) (*Head, er
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	h := &Head{cmd: cmd, URL: "http://127.0.0.1:" + strconv.Itoa(port), log: logFile.Name()}
 	exited := make(chan error, 1)
+	h := &Head{cmd: cmd, URL: "http://127.0.0.1:" + strconv.Itoa(port), log: logFile.Name(), exited: exited}
 	go func() { exited <- cmd.Wait() }()
 	for deadline := time.Now().Add(30 * time.Minute); time.Now().Before(deadline); {
 		select {

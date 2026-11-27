@@ -2,6 +2,12 @@
 
 Each `## vX.Y.Z` section becomes the notes of that release.
 
+## v0.1.1
+
+- `head --json` prints the address and the blocks as one line of JSON, and `--exit-with-stdin` stops the engine when the program that started it goes away: Tor6IA uses both to drive the engine.
+- `head` stops with an error when the model stops, for example when a block server leaves.
+- `--device CPU` makes a block server compute on the processor.
+
 ## v0.1.0
 
 - First release. `demo` splits a model across block servers on one machine and shows who holds which layers. `block` and `head` do it across machines you trust.

@@ -3,8 +3,10 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -89,6 +91,8 @@ func runHead(args []string) error {
 	blocks := fs.String("blocks", "", "block servers, as host:port,host:port")
 	port := fs.Int("port", 8090, "local port of the OpenAI-compatible API")
 	threads := fs.Int("threads", max(1, runtime.NumCPU()/2), "processors to use")
+	asJSON := fs.Bool("json", false, "print the address and the blocks as one line of JSON, for a program that drives the engine")
+	withStdin := fs.Bool("exit-with-stdin", false, "stop when standard input closes: the program that started the engine has gone")
 	fs.Parse(args)
 	if *model == "" || *blocks == "" {
 		return fmt.Errorf("--model and --blocks are required")
@@ -101,17 +105,49 @@ func runHead(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Loading %s across %s...\n", *model, *blocks)
+	fmt.Fprintf(os.Stderr, "Loading %s across %s...\n", *model, *blocks)
 	head, err := startHead(dir, file, strings.Split(*blocks, ","), *port, *threads)
 	if err != nil {
 		return err
 	}
 	defer head.Stop()
-	fmt.Println()
-	printBlocks(os.Stdout, head.Blocks())
-	fmt.Printf("\nReady. OpenAI-compatible API: %s/v1   Stop with Ctrl+C.\n", head.URL)
+	placed := head.Blocks()
+	if *asJSON {
+		total := 0
+		for _, b := range placed {
+			total += b.Layers()
+		}
+		type block struct {
+			Machine string `json:"machine"`
+			First   int    `json:"first"`
+			Last    int    `json:"last"`
+			Share   int    `json:"share"` // percent of the model's layers
+		}
+		out := struct {
+			URL    string  `json:"url"`
+			Blocks []block `json:"blocks"`
+		}{URL: head.URL}
+		for _, b := range placed {
+			out.Blocks = append(out.Blocks, block{b.Machine, b.First, b.Last, 100 * b.Layers() / max(total, 1)})
+		}
+		json.NewEncoder(os.Stdout).Encode(out)
+	} else {
+		fmt.Println()
+		printBlocks(os.Stdout, placed)
+		fmt.Printf("\nReady. OpenAI-compatible API: %s/v1   Stop with Ctrl+C.\n", head.URL)
+	}
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
-	<-stop
-	return nil
+	if *withStdin {
+		go func() {
+			io.Copy(io.Discard, os.Stdin)
+			stop <- os.Interrupt
+		}()
+	}
+	select {
+	case <-stop:
+		return nil
+	case <-head.exited:
+		return fmt.Errorf("the model stopped: a block server may have left\n%s", head.tail())
+	}
 }
