@@ -112,6 +112,9 @@ func runHead(args []string) error {
 	}
 	defer head.Stop()
 	placed := head.Blocks()
+	if gone := absent(placed, strings.Split(*blocks, ",")); len(gone) > 0 {
+		return fmt.Errorf("these block servers did not answer, the model was not split: %s", strings.Join(gone, ", "))
+	}
 	if *asJSON {
 		total := 0
 		for _, b := range placed {

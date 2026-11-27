@@ -40,6 +40,9 @@ func TestParseBlocks(t *testing.T) {
 	if !strings.Contains(table.String(), "0 to 2") || !strings.Contains(table.String(), "50 %") {
 		t.Errorf("table does not show the first block as layers 0 to 2, half of the model:\n%s", table.String())
 	}
+	if gone := absent(got, []string{"127.0.0.1:50052", "10.0.0.9:50052"}); len(gone) != 1 || gone[0] != "10.0.0.9:50052" {
+		t.Errorf("absent machines: got %v, want the one that holds no layer", gone)
+	}
 	if len(parseBlocks("nothing useful")) != 0 {
 		t.Error("blocks found in a log that has none")
 	}

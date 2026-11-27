@@ -57,6 +57,23 @@ func parseBlocks(log string) []Block {
 	return blocks
 }
 
+// absent lists the machines that were asked for but hold no layer. llama.cpp does not complain
+// when a block server is unreachable: it quietly loads those layers on the head instead, which
+// is the opposite of what a split is for.
+func absent(blocks []Block, machines []string) []string {
+	var gone []string
+	for _, m := range machines {
+		held := false
+		for _, b := range blocks {
+			held = held || b.Machine == m
+		}
+		if !held {
+			gone = append(gone, m)
+		}
+	}
+	return gone
+}
+
 func printBlocks(w io.Writer, blocks []Block) {
 	total := 0
 	for _, b := range blocks {

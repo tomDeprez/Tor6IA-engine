@@ -65,7 +65,7 @@ func startHead(dir, model string, blocks []string, port, threads int) (*Head, er
 	}
 	args := []string{"-m", model, "--host", "127.0.0.1", "--port", strconv.Itoa(port), "-t", strconv.Itoa(threads),
 		"--no-webui", "-v", // -v prints which machine receives each layer
-		"--reasoning-budget", "0"} // answer directly: thinking text would cross every machine for nothing
+		"--reasoning", "off"} // answer directly: thinking text would cross every machine for nothing
 	if len(blocks) > 0 {
 		args = append(args, "--rpc", strings.Join(blocks, ","), "-ngl", "999") // every layer goes to the block servers
 	}
@@ -198,8 +198,8 @@ func demo(model string, machines int, prompt, device string) error {
 	defer head.Stop()
 
 	blocks := head.Blocks()
-	if len(blocks) == 0 {
-		return errors.New("the head loaded the model but reported no layer placement")
+	if gone := absent(blocks, addrs); len(gone) > 0 {
+		return fmt.Errorf("these block servers hold no layer of the model: %s", strings.Join(gone, ", "))
 	}
 	fmt.Println()
 	printBlocks(os.Stdout, blocks)
