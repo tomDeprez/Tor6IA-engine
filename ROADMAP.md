@@ -22,13 +22,13 @@ Dernière mise à jour : 2026-11-27
 |---|---|---|---|
 | 0. Socle | Un modèle réparti entre machines de confiance | fait | |
 | 1. Bac à sable | Porter un bloc pour un inconnu sans risque | 5 à 8 j | 0 |
-| 2. Blocs téléchargeables | Chaque machine ne télécharge que sa partie | 3 à 5 j | 0 |
+| 2. Blocs téléchargeables | Chaque machine ne télécharge que sa partie | 3 à 3,5 j | 0 |
 | 3. Choix des blocs | « Pour ta machine, 3 blocs conseillés » dans l'interface | 2 à 3 j | 2 |
 | 4. Relais et groupes | Le réseau assemble les machines tout seul | 8 à 12 j | 1, 2 |
 | 5. Paiement par bloc | Chacun payé pour sa part, triche détectée | 4 à 6 j | 4 |
 | 6. Ouverture | Activé pour tout le monde | 3 à 5 j | 1 à 5 |
 
-Total : 25 à 39 jours de travail. Les phases 1 et 2 ne dépendent pas l'une de l'autre et peuvent avancer en alternance.
+Total : 25 à 37,5 jours de travail. Les phases 1 et 2 ne dépendent pas l'une de l'autre et peuvent avancer en alternance.
 
 ## Phase 0 : socle (fait)
 
@@ -62,23 +62,23 @@ Le verrou. Un serveur de blocs exécute les ordres de calcul d'une autre machine
 
 ## Phase 2 : blocs téléchargeables
 
-Aujourd'hui la machine de tête lit le modèle entier et envoie leurs couches aux autres. Pour que chacun ne télécharge que sa part, les blocs doivent exister comme fichiers séparés.
+Aujourd'hui la machine de tête lit le modèle entier et envoie leurs couches aux autres. Pour que chacun ne télécharge que sa part, il n'y a rien à prédécouper ni à héberger : le fichier public du modèle suffit.
 
+- [x] **2.0 Essai : lire le plan d'un modèle sans le télécharger, et n'en prendre qu'un morceau.** *2026-11-27, Gemma 4 12B, 7,38 Go : le registre public d'Ollama sert n'importe quel morceau du fichier à la demande (1 Mo pris au milieu en 0,9 s). L'en-tête, 15,8 Mo soit 0,21 % du fichier, donne le plan exact : 48 couches de 126 à 151 Mo, plus 826 Mo hors couches. Coupé en trois : 2,19, 2,13 et 2,22 Go.*
+  Conséquences : le serveur ne stocke aucun modèle, ajouter un modèle au catalogue ne demande aucune mise à jour des programmes, et les anciennes tâches « format prédécoupé » et « hébergement des blocs » sont supprimées.
 - [ ] **2.1 Essai : comment un serveur de blocs peut charger ses couches depuis son disque.** 1 j.
-  À vérifier : le cache du serveur de blocs (`-c`) est indexé par l'empreinte de chaque couche. Si on le remplit à l'avance, la tête n'envoie plus rien.
+  À vérifier : le cache du serveur de blocs (`-c`) est indexé par l'empreinte de chaque couche. Si on le remplit à l'avance avec les morceaux téléchargés, la tête n'envoie plus rien.
   **Fini quand** : un modèle se charge sur deux serveurs de blocs avec moins de 1 % de ses octets transférés, mesuré avec `proof/delayproxy`.
-  **Si ça échoue** : étudier le découpage du fichier GGUF par `gguf-split`.
-- [ ] **2.2 Format d'un modèle prédécoupé.** 1 j.
-  Un manifeste par modèle : liste des blocs, couches de chaque bloc, taille, empreinte SHA-256. Taille de bloc visée : environ 1 Go.
-  **Fini quand** : `tor6ia-engine pack --model gemma4:12b` produit les blocs et le manifeste, et deux exécutions donnent les mêmes empreintes.
-- [ ] **2.3 Hébergement des blocs.** 0,5 à 1 j.
-  Un hébergeur de fichiers public et gratuit pour des modèles ouverts. Pas le serveur du coordinateur.
-  **Fini quand** : les blocs de Gemma 4 12B sont téléchargeables par une adresse stable, empreintes vérifiées.
-- [ ] **2.4 Télécharger seulement ses blocs.** 1 j.
-  `tor6ia-engine fetch --model gemma4:12b --blocks 3-5`, avec reprise après coupure et vérification d'empreinte.
+  **Si ça échoue** : reconstituer sur chaque machine un fichier GGUF partiel avec `gguf-split`.
+- [ ] **2.2 Le plan dans le moteur.** 0,5 à 1 j.
+  `tor6ia-engine plan --model gemma4:31b` lit l'en-tête par morceaux depuis le registre et affiche les couches, leur taille et un découpage en blocs d'environ 1 Go.
+  **Fini quand** : le plan d'un modèle jamais téléchargé s'affiche en ayant reçu moins de 20 Mo, et il est identique à celui lu dans le fichier complet.
+- [ ] **2.3 Télécharger seulement ses couches.** 1 j.
+  `tor6ia-engine fetch --model gemma4:12b --blocks 3-5` prend les morceaux du fichier public qui correspondent, avec reprise après coupure.
+  À vérifier : le registre ne donne qu'une empreinte pour le fichier entier. L'intégrité d'un morceau repose donc sur la connexion HTTPS au registre officiel, sauf si le cache de 2.1 vérifie l'empreinte de chaque couche.
   **Fini quand** : une machine qui porte 3 blocs sur 8 a téléchargé 3 huitièmes du modèle, pas plus, et sert ces blocs.
-- [ ] **2.5 Rôle de la machine de tête.** 0,5 j.
-  À vérifier : la tête a besoin du fichier entier sur son disque, pas en mémoire.
+- [ ] **2.4 Rôle de la machine de tête.** 0,5 j.
+  Elle porte ce qui est hors couches (826 Mo pour Gemma 4 12B). À vérifier : a-t-elle besoin du fichier entier sur son disque, ou seulement de l'en-tête et de sa part.
   **Fini quand** : la règle est écrite ici avec la mémoire et le disque mesurés pour la tête d'un modèle de 20 Go.
 
 ## Phase 3 : choix des blocs dans l'interface
@@ -107,7 +107,7 @@ Aujourd'hui la machine de tête lit le modèle entier et envoie leurs couches au
   Même réseau local ou port joignable : les machines se parlent sans passer par le relais.
   **Fini quand** : deux machines du même réseau échangent en direct, vérifié par le compteur d'octets du relais qui reste à zéro.
 - [ ] **4.5 Registre des blocs dans le coordinateur.** 1 à 2 j.
-  Qui porte quels blocs de quel modèle. Chaque modèle affiche « blocs couverts : 6 sur 8, il manque 2 machines ».
+  Qui porte quels blocs de quel modèle. Le coordinateur lit lui-même le plan de chaque modèle du catalogue (16 Mo, voir 2.0) : il ne stocke aucun modèle. Chaque modèle affiche « blocs couverts : 6 sur 8, il manque 2 machines ».
   **Fini quand** : l'interface de Tor6IA affiche ce compte en direct, et il est juste quand des machines arrivent et partent.
 - [ ] **4.6 Assemblage d'une chaîne.** 1 à 2 j.
   Pour une demande, le coordinateur choisit une machine par bloc, la plus rapide disponible, et une tête qui a le fichier.
@@ -141,7 +141,8 @@ Aujourd'hui la machine de tête lit le modèle entier et envoie leurs couches au
 | Risque | Signe | Réponse prévue |
 |---|---|---|
 | Pas de bac à sable sans droits administrateur sous Windows | 1.1 échoue | WebAssembly ou WSL pour porter des blocs sous Windows |
-| Le cache des couches ne permet pas le préchargement | 2.1 échoue | Découpage du fichier par `gguf-split` |
+| Le cache des couches ne permet pas le préchargement | 2.1 échoue | Fichier GGUF partiel reconstitué par `gguf-split` |
+| Le registre public cesse de servir des morceaux de fichier | 2.3 reçoit le fichier entier | Autre source publique du même fichier, vérifiée par son empreinte |
 | Trop d'octets par token pour un relais abordable | 4.1 donne un chiffre trop haut | Connexion directe obligatoire, le relais ne sert qu'à se trouver |
 | Trop lent à travers plusieurs pays | 4.8 sous 1 token par seconde | Chaînes formées par proximité, modèles limités en nombre de blocs |
 | llama.cpp change son protocole | une nouvelle version casse les essais | La version reste épinglée, montée de version testée à part |
@@ -149,3 +150,4 @@ Aujourd'hui la machine de tête lit le modèle entier et envoie leurs couches au
 ## Journal
 
 - 2026-11-27 : plan écrit. Phase 0 terminée le même jour. Rien de commencé au-delà.
+- 2026-11-27 : essai 2.0 fait sur une question de Tom (« peut-on découper sans télécharger ? »). Oui : plan exact dans l'en-tête, morceaux servis à la demande. Phase 2 allégée de deux tâches, plus aucun hébergement de modèles à prévoir.
