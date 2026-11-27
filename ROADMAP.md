@@ -4,9 +4,9 @@ But : chaque personne choisit un modèle et un nombre de blocs dans l'interface 
 
 Ce fichier est la référence. Il est mis à jour à chaque tâche terminée : case cochée, date, résultat mesuré, décision prise.
 
-**État : plan en attente de validation par Tom. Rien n'est commencé au-delà de la phase 0.**
+**État : plan validé par Tom le 2026-11-27. Travail en cours.**
 
-**Prochaine tâche après validation : E1**
+**Prochaine tâche : E1**
 
 Dernière mise à jour : 2026-11-27
 
@@ -31,22 +31,22 @@ Le projet est fini quand cette scène est jouée pour de vrai et notée dans le 
 - Les durées sont des jours de travail, en fourchette. Elles sont corrigées après les essais de l'étape E.
 - Une tâche terminée, c'est : tests écrits, pipeline verte sur Windows, Linux et macOS, ce fichier mis à jour, poussé sur GitHub.
 
-## 3. Décisions à valider par Tom avant de commencer
+## 3. Décisions
 
-Chaque décision a ma recommandation. Réponds « ok » ou change ce que tu veux.
+Validées par Tom le 2026-11-27, avec deux changements : le relais tourne sur le VPS existant (D4), et les essais à plusieurs vraies machines sont faits avec la machine de Tom et le VPS, puis par Tom avec des gens une fois tout fini (D10).
 
 | N° | Décision | Ma recommandation | Pourquoi |
 |---|---|---|---|
 | D1 | Par quoi commencer | Tous les essais d'abord (étape E, 4 jours), puis construire | Chaque essai peut changer la route. Mieux vaut le savoir en 4 jours qu'en 4 semaines. |
 | D2 | Premier résultat visible | Les blocs à la carte entre machines de confiance (jalon J1), avant le bac à sable | Tu vois ton idée marcher en une semaine, sans risque puisque ce sont des machines que tu choisis. |
 | D3 | Ouverture aux inconnus | Interdite tant que le bac à sable (J2) n'est pas fini et testé | Un serveur de blocs sans protection ouvert au monde mettrait chaque utilisateur en danger. |
-| D4 | Serveur du relais | Un serveur dédié, loué pour ça, pas le VPS actuel | Le VPS actuel porte 8 sites. Le relais fait passer tout le trafic des calculs. Coût à chiffrer en E4, ordre de grandeur 5 à 20 € par mois. |
+| D4 | Serveur du relais | **Changé par Tom : le VPS existant.** Service séparé, mémoire, processeur et débit plafonnés | Le VPS porte 8 sites : le relais ne doit jamais pouvoir les ralentir. Le débit nécessaire est mesuré en E4. |
 | D5 | Windows sans bac à sable possible | Accepter que porter des blocs sous Windows passe alors par WSL | Seulement si l'essai E1 échoue. Utiliser un modèle reste possible partout. |
 | D6 | Vie privée en mode blocs | Accepter que les machines de la chaîne voient passer les données du calcul, et l'écrire dans l'interface | Le chiffrement de bout en bout actuel ne peut pas couvrir un calcul réparti. Le mode « un modèle entier sur une machine » garde son chiffrement. |
 | D7 | Sécurité des réponses | Deux machines au moins par bloc avant d'annoncer un modèle disponible | Sans ça, une machine qui part coupe toutes les réponses. |
 | D8 | Premier modèle en blocs | Gemma 4 31B seul au début, puis les autres | Un seul modèle à régler, le plus gros du catalogue, celui que presque personne ne tient seul. |
 | D9 | Taille d'un bloc | Environ 1 Go, toujours des couches entières | Assez petit pour une machine de 8 Go, assez gros pour ne pas multiplier les sauts réseau. À confirmer en E4. |
-| D10 | Machines d'essai | Tu fournis 3 vraies machines sur 2 connexions Internet pour J3, et 10 volontaires pour J5 | Je ne peux tester que sur ta machine. Sans vraies machines, pas de preuve à travers Internet. |
+| D10 | Machines d'essai | **Changé par Tom : sa machine et le VPS pour les essais, puis il teste lui-même avec des gens quand tout est fini** | Le VPS est une vraie seconde machine à travers Internet. Les essais à trois machines et plus restent à faire par Tom. |
 | D11 | Le cache de 22 Go déjà sur ton disque | Le garder jusqu'à la tâche 2.5, qui lui met une limite | Il vient de mes tests du 2026-11-27 (`%LOCALAPPDATA%\\llama.cpp\\rpc`). Il resservira aux essais. Je le supprime si tu préfères. |
 
 ## 4. Les jalons : ce que tu vois, et quand
@@ -222,11 +222,7 @@ Dépend de tout ce qui précède.
 
 | Quand | Quoi |
 |---|---|
-| Maintenant | Valider les décisions D1 à D11 |
-| Fin de l'étape E | Relire le rapport des essais et revalider les durées |
-| Avant J3 | Louer le serveur du relais (D4), ou me dire lequel utiliser |
-| Pour J3 | 3 vraies machines sur 2 connexions Internet (D10) |
-| Pour J5 | 10 volontaires pendant une semaine |
+| Quand tout est fini | Tester avec des gens et dire ce qui marche ou non (D10) |
 | N'importe quand | Changer le mot de passe root du VPS, exposé dans une conversation |
 
 ## 14. Ce qui peut faire dérailler le plan
@@ -246,4 +242,5 @@ Dépend de tout ce qui précède.
 
 - 2026-11-27 : phase 0 terminée. Premier plan écrit.
 - 2026-11-27 : essai 0.6 fait sur une question de Tom (« peut-on découper sans télécharger ? »). Oui : plan exact dans l'en-tête, morceaux servis à la demande. Plus aucun hébergement de modèles à prévoir.
+- 2026-11-27 : plan validé par Tom. Consigne : tout faire sans s'arrêter, mettre ce fichier à jour à chaque tâche, essais sur le VPS, test final par Tom avec des gens. D4 et D10 changées en conséquence.
 - 2026-11-27 : plan complet réécrit avec décisions à valider, jalons et étape d'essais. Découvert pendant la préparation : le cache des serveurs de blocs occupe 22 Go après une journée d'essais, d'où la tâche 2.5. En attente de la validation de Tom.
