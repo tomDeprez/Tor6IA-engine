@@ -6,7 +6,7 @@ Ce fichier est la référence. Il est mis à jour à chaque tâche terminée : c
 
 **État : plan validé par Tom le 2026-11-27. Travail en cours.**
 
-**Prochaine tâche : E3**
+**Prochaine tâche : 1.1** (les essais sont finis, voir le rapport E6)
 
 Dernière mise à jour : 2026-11-27
 
@@ -53,7 +53,7 @@ Validées par Tom le 2026-11-27, avec deux changements : le relais tourne sur le
 
 | Jalon | Ce que tu peux faire à la fin | Version publiée | Durée | Cumul |
 |---|---|---|---|---|
-| E. Essais | Lire un rapport : chaque hypothèse du plan est confirmée ou remplacée | aucune | 3,5 à 4,5 j | 4,5 j |
+| E. Essais | Lire un rapport : chaque hypothèse du plan est confirmée ou remplacée | aucune | **fait** | |
 | J1. Blocs à la carte entre amis | Choisir un modèle et un nombre de blocs dans l'interface, ne télécharger que ça, voir les blocs couverts | Tor6IA 0.3.0 | 5 à 7 j | 11,5 j |
 | J2. Bac à sable | Porter un bloc pour quelqu'un sans qu'il puisse toucher à ta machine | moteur 0.3.0 | 2 à 3 j restants | 17,5 j |
 | J3. Le réseau forme les groupes | Des machines derrière des box, sans se connaître, portent un modèle ensemble | Tor6IA 0.4.0, sur invitation | 7,5 à 11,5 j | 29 j |
@@ -110,16 +110,46 @@ Aucun produit fini ici. Chaque essai répond à une question par une mesure, dan
   - Le gros tenseur hors couches (826 Mo ici) est placé avec les dernières couches : la machine qui porte la fin du modèle doit le précharger aussi (`fetch --outside`).
   - Décision : on continue avec llama.cpp tel quel. Le seuil devient la tâche 3.9, à faire seulement si le trafic du relais le demande.
   - Depuis le registre public, pour un modèle absent du disque : 3 couches de Gemma 4 31B, 0,84 Go en 65 s, 5 % du modèle. Les requêtes reprennent après une coupure (la première tentative s'était arrêtée à 41 %).
-- [ ] **E3 Peut-on imposer quelle machine porte quelles couches ?** 0,5 j.
-  **Fini quand** : avec trois serveurs de blocs et les parts 1, 3 et 2, les couches affichées par le moteur suivent exactement le plan demandé, avec `--tensor-split` ou `--override-tensor`.
-- [ ] **E4 Combien d'octets et d'allers-retours par token entre deux blocs ?** 0,5 j.
-  Pour Gemma 4 12B et 31B, avec 2, 4 et 8 blocs.
-  **Fini quand** : le tableau est écrit ici. Il donne le débit que le relais doit tenir, donc son coût (D4), et le nombre de blocs au-delà duquel la vitesse tombe sous 1 token par seconde (D9).
-- [ ] **E5 De quoi la machine de tête a-t-elle besoin ?** 0,5 j.
-  À vérifier : le fichier entier sur son disque, ou seulement l'en-tête et sa part.
-  **Fini quand** : mémoire et disque mesurés pour la tête d'un modèle de 20 Go. Si la tête doit avoir tout le fichier, c'est écrit dans l'interface : « pour lancer une conversation sur ce modèle, 20 Go de disque ».
-- [ ] **E6 Rapport des essais.** 0,5 j.
-  **Fini quand** : ce fichier contient les résultats, les durées corrigées de J1 à J5 et les décisions qui ont changé. Tom revalide avant J1.
+- [x] **E3 Peut-on imposer quelle machine porte quelles couches ?** *Fait le 2026-11-27 : oui.*
+  **Résultat**, Gemma 4 12B (49 couches en comptant la sortie) sur trois serveurs de blocs, avec `tor6ia-engine head --shares` (`--tensor-split` de llama.cpp) :
+
+  | Parts demandées | Couches obtenues |
+  |---|---|
+  | aucune (selon la mémoire libre) | 17, 16, 16 |
+  | 1, 3, 2 | 9, 24, 16 |
+  | 5, 1, 6 | 21, 4, 24 |
+
+  Les couches suivent les parts, en tranches contiguës, dans l'ordre des machines. Donner comme parts le nombre de couches voulu par machine fixe donc le découpage.
+- [x] **E4 Combien d'octets et d'allers-retours par token entre deux blocs ?** *Fait le 2026-11-27.*
+  **Résultat**, Gemma 4 12B, octets par token généré, tête et blocs confondus :
+
+  | Réglage | 2 blocs | 4 blocs | 8 blocs |
+  |---|---|---|---|
+  | llama.cpp tel quel | 1 300 Ko | 1 410 Ko | |
+  | table des mots gardée sur la tête | 346 Ko | 460 Ko | 688 Ko |
+
+  - Tel quel, le dernier bloc renvoie un score par mot du vocabulaire : 262 144 mots, 1,05 Mo par token. Le moteur garde maintenant la table des mots sur la tête (`--override-tensor`), ce qui divise le trafic par 3 à 4.
+  - Reste environ 230 Ko par token, plus 57 Ko par bloc. À 2 tokens par seconde, une conversation fait passer 0,7 à 1,4 Mo par seconde.
+  - Allers-retours : environ un par machine et par token (déduit de 0.2 : 100 ms de délai aller-retour ajoutent 209 ms par token pour deux blocs).
+  - **Conséquence pour le relais (D4)** : sur le VPS partagé, quelques conversations en même temps au plus. Le relais aura un débit plafonné, et la connexion directe (3.3) devient prioritaire.
+  - **Conséquence pour D9** : ce qui ralentit, c'est le nombre de machines dans la chaîne, pas le nombre de blocs. Une machine qui porte plusieurs blocs voisins ne compte que pour un saut. Limite visée : 6 machines par chaîne.
+- [x] **E5 De quoi la machine de tête a-t-elle besoin ?** *Fait le 2026-11-27.*
+  **Résultat**, Gemma 4 12B (fichier de 7,4 Go) sur deux serveurs de blocs :
+  - La tête lit chaque tenseur pour en calculer l'empreinte : il lui faut **le fichier entier sur son disque**. Sa mémoire propre est faible (la table des mots, 0,8 Go) ; le reste de ses 7,2 Go mesurés est le fichier gardé en cache par le système, qui le reprend au besoin.
+  - Chaque serveur de blocs occupe **1,8 fois la taille de ses couches** : 6,1 et 5,8 Go pour deux moitiés de 3,3 Go.
+  - Règle pour le conseil (1.4) : nombre de blocs = (mémoire libre moins 2 Go) divisé par 1,8 fois la taille d'un bloc.
+- [x] **E6 Rapport des essais.** *Fait le 2026-11-27.*
+
+  | Hypothèse du plan | Verdict | Suite |
+  |---|---|---|
+  | Un serveur de blocs peut être enfermé sans droits administrateur | vrai sur les trois systèmes | fait (E1, 2.1) |
+  | Chaque machine peut ne télécharger que sa part | vrai : 5 % du modèle pour 3 couches sur 60 | `plan` et `fetch` existent |
+  | La tête n'envoie alors presque plus rien | faux : il reste 15 % | 3.9, si le relais l'exige |
+  | On peut choisir quelle machine porte quoi | vrai | `head --shares` |
+  | Le trafic par token est faible | faux tel quel (1,3 Mo), acceptable une fois corrigé (0,35 à 0,7 Mo) | corrigé dans le moteur |
+  | La tête peut être une petite machine | à moitié : peu de mémoire, mais tout le fichier sur le disque | à dire dans l'interface |
+
+  Durées corrigées : J2 passe à 2 à 3 jours restants (le bac à sable est fait). Les autres jalons gardent leur fourchette. Le plan n'a pas besoin de changer de route.
 
 ## 7. Jalon J1 : les blocs à la carte, entre machines de confiance
 
@@ -264,6 +294,7 @@ Dépend de tout ce qui précède.
 
 - 2026-11-27 : phase 0 terminée. Premier plan écrit.
 - 2026-11-27 : essai 0.6 fait sur une question de Tom (« peut-on découper sans télécharger ? »). Oui : plan exact dans l'en-tête, morceaux servis à la demande. Plus aucun hébergement de modèles à prévoir.
+- 2026-11-27 : **E3, E4, E5 faits, étape des essais terminée.** Deux découvertes ont changé le moteur : la table des mots doit rester sur la tête (trafic par token divisé par 3 à 4), et le relais sur le VPS devra être plafonné. Rapport dans E6.
 - 2026-11-27 : **E2 fait.** Le préchargement par le cache marche pour 85 % du modèle et divise le temps de chargement par 2,5. Les 15 % restants (tenseurs de moins de 10 Mo) passent toujours par la tête : tâche 3.9 ajoutée, conditionnelle. Le plan et le téléchargement par couches existent en commandes (`plan`, `fetch`).
 - 2026-11-27 : **E1 réussi, et 2.1 faite dans la foulée.** Le bac à sable existe sur Windows, Linux et macOS sans droits administrateur. La route de repli WSL est abandonnée. Trois allers-retours avec la pipeline ont été nécessaires pour Windows Server (périphérique `NUL` interdit dans la boîte).
 - 2026-11-27 : plan validé par Tom. Consigne : tout faire sans s'arrêter, mettre ce fichier à jour à chaque tâche, essais sur le VPS, test final par Tom avec des gens. D4 et D10 changées en conséquence.

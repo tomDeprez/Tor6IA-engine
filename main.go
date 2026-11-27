@@ -118,6 +118,7 @@ func runHead(args []string) error {
 	blocks := fs.String("blocks", "", "block servers, as host:port,host:port")
 	port := fs.Int("port", 8090, "local port of the OpenAI-compatible API")
 	threads := fs.Int("threads", max(1, runtime.NumCPU()/2), "processors to use")
+	shares := fs.String("shares", "", "part of the model each block server takes, in order, like 1,3,2 (default: by free memory)")
 	asJSON := fs.Bool("json", false, "print the address and the blocks as one line of JSON, for a program that drives the engine")
 	withStdin := fs.Bool("exit-with-stdin", false, "stop when standard input closes: the program that started the engine has gone")
 	fs.Parse(args)
@@ -133,7 +134,7 @@ func runHead(args []string) error {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "Loading %s across %s...\n", *model, *blocks)
-	head, err := startHead(dir, file, strings.Split(*blocks, ","), *port, *threads)
+	head, err := startHead(dir, file, strings.Split(*blocks, ","), *shares, *port, *threads)
 	if err != nil {
 		return err
 	}

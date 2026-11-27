@@ -110,7 +110,9 @@ type Head struct {
 	exited chan error // receives once, when llama-server stops by itself
 }
 
-func startHead(dir, model string, blocks []string, port, threads int) (*Head, error) {
+// shares, when given, says which part of the model each block server takes, in the order of
+// blocks: 1,3,2 gives the second one half of the layers. Empty lets llama.cpp divide by free memory.
+func startHead(dir, model string, blocks []string, shares string, port, threads int) (*Head, error) {
 	logFile, err := os.CreateTemp("", "tor6ia-engine-head-*.log")
 	if err != nil {
 		return nil, err
@@ -119,7 +121,15 @@ func startHead(dir, model string, blocks []string, port, threads int) (*Head, er
 		"--no-webui", "-v", // -v prints which machine receives each layer
 		"--reasoning", "off"} // answer directly: thinking text would cross every machine for nothing
 	if len(blocks) > 0 {
-		args = append(args, "--rpc", strings.Join(blocks, ","), "-ngl", "999") // every layer goes to the block servers
+		// Every layer goes to the block servers. The word table stays here: it is what turns the
+		// last state into one score per word, and a block that held it would send back a megabyte
+		// per token for a 262 000-word vocabulary. Kept here, a token costs a few hundred kilobytes
+		// (measured on Gemma 4 12B: 1 300 KB before, 350 KB after, with two blocks).
+		args = append(args, "--rpc", strings.Join(blocks, ","), "-ngl", "999",
+			"--override-tensor", `^token_embd\.weight$=CPU,^output\.weight$=CPU`)
+		if shares != "" {
+			args = append(args, "--tensor-split", shares)
+		}
 	}
 	cmd := command(dir, "llama-server", args...)
 	cmd.Stdout, cmd.Stderr = logFile, logFile
@@ -232,7 +242,7 @@ func demo(model string, machines int, prompt, device string, locked bool) error 
 	if err != nil {
 		return err
 	}
-	head, err := startHead(dir, file, addrs, port, threads)
+	head, err := startHead(dir, file, addrs, "", port, threads)
 	if err != nil {
 		// The head usually fails because a block server did: show what each one last said.
 		for i, path := range blockLogs {
