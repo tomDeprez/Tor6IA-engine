@@ -1,0 +1,90 @@
+name: CI
+
+# Every push: tests, then the real demo on Windows, Linux and macOS with a tiny model.
+# A tag vX.Y.Z also publishes the release and checks the one-line install.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # A 1 MB story model: enough to prove the layers really are placed on the block servers.
+  TINY_MODEL: https://huggingface.co/ggml-org/models/resolve/main/tinyllamas/stories260K.gguf
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Format
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          unformatted=$(gofmt -l . proof)
+          if [ -n "$unformatted" ]; then echo "Run gofmt on: $unformatted"; exit 1; fi
+      - run: go vet ./...
+      - run: go test ./...
+      - name: Split a model across three block servers
+        run: |
+          go build -o "engine$(go env GOEXE)" .
+          curl -fL -o tiny.gguf "$TINY_MODEL"
+          "./engine$(go env GOEXE)" demo --model tiny.gguf --machines 3 --prompt "Once upon a time" | tee demo.txt
+          grep -q "tokens per second" demo.txt
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Build
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          for target in windows/amd64 linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            os=${target%/*} arch=${target#*/} ext=
+            if [ "$os" = windows ]; then ext=.exe; fi
+            GOOS=$os GOARCH=$arch go build -trimpath -ldflags "-s -w -X main.version=${TAG#v}" -o "dist/tor6ia-engine-$os-$arch$ext" .
+          done
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          awk -v head="## $TAG" '$0 == head { on = 1; next } /^## / { on = 0 } on' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then echo "CHANGELOG.md has no section '## $TAG'"; exit 1; fi
+          gh release create "$TAG" dist/tor6ia-engine-* --title "$TAG" --notes-file notes.md
+
+  # Runs the documented one-line install on clean machines, then the demo.
+  install-test:
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh install.sh
+      - run: |
+          curl -fL -o tiny.gguf "$TINY_MODEL"
+          "$HOME/.local/bin/tor6ia-engine" demo --model tiny.gguf --machines 3 --prompt "Once upon a time" | tee demo.txt
+          grep -q "tokens per second" demo.txt

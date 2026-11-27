@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 470" role="img" aria-labelledby="t d">
+  <title id="t">One model, three machines</title>
+  <desc id="d">The 49 layers of a model are cut into three blocks. Each machine holds one block. A token goes through block 1, then block 2, then block 3, and comes back to the head.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#e9eef7"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="470" rx="24" fill="#0a101c"/>
+  <g font-family="Bahnschrift, 'DIN Alternate', 'Avenir Next Condensed', 'Roboto Condensed', 'Arial Narrow', system-ui, sans-serif" fill="#e9eef7">
+    <text x="60" y="66" font-size="34" font-weight="700">One model, cut into blocks of layers</text>
+
+    <!-- the model: one bar of 49 layers -->
+    <text x="60" y="118" font-size="19" fill="#93a0b8">Gemma 4 12B: 49 layers, 8 GB. Too much for one small machine.</text>
+    <rect x="60" y="136" width="372" height="46" rx="10" fill="#0c9470"/>
+    <rect x="436" y="136" width="350" height="46" rx="10" fill="#5646ff"/>
+    <rect x="790" y="136" width="350" height="46" rx="10" fill="#c77a08"/>
+    <g font-size="20" font-weight="700" text-anchor="middle">
+      <text x="246" y="166">Block 1 · layers 0 to 16</text>
+      <text x="611" y="166">Block 2 · layers 17 to 32</text>
+      <text x="965" y="166">Block 3 · layers 33 to 48</text>
+    </g>
+
+    <!-- each machine holds one block -->
+    <g stroke="#e9eef7" stroke-width="2" opacity=".5">
+      <path d="M246 182 V236"/><path d="M611 182 V236"/><path d="M965 182 V236"/>
+    </g>
+    <g>
+      <rect x="96" y="236" width="300" height="104" rx="16" fill="#162034" stroke="#0c9470" stroke-width="2.5"/>
+      <rect x="461" y="236" width="300" height="104" rx="16" fill="#162034" stroke="#5646ff" stroke-width="2.5"/>
+      <rect x="815" y="236" width="300" height="104" rx="16" fill="#162034" stroke="#c77a08" stroke-width="2.5"/>
+    </g>
+    <g text-anchor="middle">
+      <text x="246" y="280" font-size="25" font-weight="700">Machine A</text>
+      <text x="611" y="280" font-size="25" font-weight="700">Machine B</text>
+      <text x="965" y="280" font-size="25" font-weight="700">Machine C</text>
+      <g font-size="17" fill="#93a0b8">
+        <text x="246" y="312">holds a third of the model</text>
+        <text x="611" y="312">holds a third of the model</text>
+        <text x="965" y="312">holds a third of the model</text>
+      </g>
+    </g>
+
+    <!-- the path of one token -->
+    <path d="M396 288 H458" stroke="#e9eef7" stroke-width="3" fill="none" marker-end="url(#a)"/>
+    <path d="M761 288 H812" stroke="#e9eef7" stroke-width="3" fill="none" marker-end="url(#a)"/>
+
+    <text x="60" y="396" font-size="21" font-weight="700">Each token crosses the blocks in order.</text>
+    <text x="60" y="428" font-size="18" fill="#93a0b8">A machine with more memory takes more layers. Measured on one laptop: 3.3 tokens per second with three blocks.</text>
+  </g>
+</svg>
