@@ -34,13 +34,19 @@ func freePort() (int, error) {
 }
 
 // blockCommand is one block server: it lends this machine's memory and processor to a head.
-func blockCommand(dir, listen string, threads int) (*exec.Cmd, error) {
+// device chooses what computes: empty lets llama.cpp decide (the graphics card when there is one),
+// "CPU" forces the processor.
+func blockCommand(dir, listen string, threads int, device string) (*exec.Cmd, error) {
 	host, port, err := net.SplitHostPort(listen)
 	if err != nil {
 		return nil, fmt.Errorf("bad address %q: want host:port", listen)
 	}
 	// -c keeps the layers it received on disk: the next start loads them locally instead of over the network.
-	return command(dir, "ggml-rpc-server", "-H", host, "-p", port, "-t", strconv.Itoa(threads), "-c"), nil
+	args := []string{"-H", host, "-p", port, "-t", strconv.Itoa(threads), "-c"}
+	if device != "" {
+		args = append(args, "-d", device)
+	}
+	return command(dir, "ggml-rpc-server", args...), nil
 }
 
 // Head is the machine that holds the conversation: it runs the model across the block servers
@@ -138,7 +144,7 @@ func (h *Head) Ask(prompt string, maxTokens int) (string, float64, error) {
 
 // demo shows the whole idea on one machine: it starts several block servers, splits the model
 // across them, prints who holds which layers and asks one question.
-func demo(model string, machines int, prompt string) error {
+func demo(model string, machines int, prompt, device string) error {
 	dir, err := ensureLlama()
 	if err != nil {
 		return err
@@ -156,7 +162,7 @@ func demo(model string, machines int, prompt string) error {
 			return err
 		}
 		addr := "127.0.0.1:" + strconv.Itoa(port)
-		cmd, err := blockCommand(dir, addr, threads)
+		cmd, err := blockCommand(dir, addr, threads, device)
 		if err != nil {
 			return err
 		}

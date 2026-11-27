@@ -66,6 +66,8 @@ tor6ia-engine head --model gemma4:12b --blocks 192.168.1.20:50052,192.168.1.21:5
 
 La tête affiche les blocs, puis sert une API compatible OpenAI sur `http://127.0.0.1:8090/v1`. Une machine avec plus de mémoire libre reçoit plus de couches.
 
+**Sur Mac.** La démo et les serveurs de blocs sont testés sur le processeur : ajoute `--device CPU`. Sur les Mac virtuels de GitHub, la carte graphique arrête un serveur de blocs avec « unsupported op » ; la carte graphique d'un vrai Mac n'a pas encore été testée.
+
 **Uniquement entre machines de confiance.** Un serveur de blocs n'a ni identification ni chiffrement : toute machine qui atteint son port peut lancer des calculs dedans. Utilise un réseau privé ou un VPN. C'est pour ça que le moteur n'est pas encore ouvert aux inconnus sur le réseau Tor6IA.
 
 ## Où on en est
@@ -73,7 +75,7 @@ La tête affiche les blocs, puis sert une API compatible OpenAI sur `http://127.
 Construit et testé :
 
 - Un modèle réparti entre des serveurs de blocs, avec l'emplacement de chaque couche affiché.
-- Une commande pour l'essayer. Chaque version lance la démo sur des machines Windows, Linux et macOS vierges.
+- Une commande pour l'essayer. Chaque version lance la démo sur des machines Windows, Linux et macOS vierges (macOS sur le processeur).
 - Le coût du délai réseau, mesuré.
 
 Pas encore construit, dans l'ordre prévu :

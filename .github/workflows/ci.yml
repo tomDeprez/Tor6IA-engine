@@ -38,10 +38,14 @@ jobs:
       - run: go vet ./...
       - run: go test ./...
       - name: Split a model across three block servers
+        env:
+          # GitHub's macOS machines have a virtual graphics card on which a block server stops with
+          # "unsupported op": there the demo runs on the processor.
+          DEVICE: ${{ runner.os == 'macOS' && '--device CPU' || '' }}
         run: |
           go build -o "engine$(go env GOEXE)" .
           curl -fL -o tiny.gguf "$TINY_MODEL"
-          "./engine$(go env GOEXE)" demo --model tiny.gguf --machines 3 --prompt "Once upon a time" | tee demo.txt
+          "./engine$(go env GOEXE)" demo --model tiny.gguf --machines 3 --prompt "Once upon a time" $DEVICE | tee demo.txt
           grep -q "tokens per second" demo.txt
 
   release:
@@ -84,7 +88,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: sh install.sh
-      - run: |
+      - env:
+          DEVICE: ${{ runner.os == 'macOS' && '--device CPU' || '' }}
+        run: |
           curl -fL -o tiny.gguf "$TINY_MODEL"
-          "$HOME/.local/bin/tor6ia-engine" demo --model tiny.gguf --machines 3 --prompt "Once upon a time" | tee demo.txt
+          "$HOME/.local/bin/tor6ia-engine" demo --model tiny.gguf --machines 3 --prompt "Once upon a time" $DEVICE | tee demo.txt
           grep -q "tokens per second" demo.txt

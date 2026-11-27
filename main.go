@@ -14,6 +14,8 @@ import (
 
 var version = "dev"
 
+const deviceHelp = `what computes on a block server: empty for llama.cpp's choice, CPU for the processor (use it if a block server stops with "unsupported op")`
+
 const usage = `tor6ia-engine: one model, several machines
 
   tor6ia-engine demo  [--model gemma4:e2b] [--machines 3]    try it on this machine alone
@@ -35,12 +37,13 @@ func main() {
 		model := fs.String("model", "gemma4:e2b", "GGUF file, or a model Ollama has")
 		machines := fs.Int("machines", 3, "how many block servers to start")
 		prompt := fs.String("prompt", "Explain in one sentence what a peer-to-peer network is.", "question to ask")
+		device := fs.String("device", "", deviceHelp)
 		fs.Parse(os.Args[2:])
 		if *machines < 1 || *machines > 16 {
 			err = fmt.Errorf("--machines must be between 1 and 16")
 			break
 		}
-		err = demo(*model, *machines, *prompt)
+		err = demo(*model, *machines, *prompt, *device)
 	case "block":
 		err = runBlock(os.Args[2:])
 	case "head":
@@ -61,12 +64,13 @@ func runBlock(args []string) error {
 	fs := flag.NewFlagSet("block", flag.ExitOnError)
 	listen := fs.String("listen", "127.0.0.1:50052", "address the block server listens on")
 	threads := fs.Int("threads", max(1, runtime.NumCPU()/2), "processors to use")
+	device := fs.String("device", "", deviceHelp)
 	fs.Parse(args)
 	dir, err := ensureLlama()
 	if err != nil {
 		return err
 	}
-	cmd, err := blockCommand(dir, *listen, *threads)
+	cmd, err := blockCommand(dir, *listen, *threads, *device)
 	if err != nil {
 		return err
 	}
