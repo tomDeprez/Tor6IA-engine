@@ -2,6 +2,10 @@
 
 Each `## vX.Y.Z` section becomes the notes of that release.
 
+## v0.2.1
+
+- `block --json --exit-with-stdin`: a program that drives a block server gets clean JSON lines, and the block server stops when that program goes away.
+
 ## v0.2.0
 
 - Block servers are locked in by default: no personal file, no outgoing connection, no other program. An AppContainer on Windows, Landlock and seccomp on Linux, a sandbox profile on macOS. `jail-test` proves it on your machine; `--unlocked` removes the lock.

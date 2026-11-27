@@ -87,6 +87,7 @@ func runBlock(args []string) error {
 	model := fs.String("model", "", "model whose blocks this machine holds")
 	blockList := fs.String("blocks", "", "blocks to hold, like 4-9 (see the plan command)")
 	asJSON := fs.Bool("json", false, "print progress and the ready line as JSON, for a program that drives the engine")
+	withStdin := fs.Bool("exit-with-stdin", false, "stop when standard input closes: the program that started the engine has gone")
 	fs.Parse(args)
 	dir, err := ensureLlama()
 	if err != nil {
@@ -154,13 +155,23 @@ func runBlock(args []string) error {
 	if *unlocked {
 		how = "NOT locked in: it has every right of your account"
 	}
-	fmt.Printf("Block server on %s, %d processors, %s.\n", block.Addr, *threads, how)
-	if host, _, _ := net.SplitHostPort(*listen); host != "127.0.0.1" && host != "localhost" && host != "::1" {
-		fmt.Println("It has no login and no encryption: any machine that can reach this port can give it work.")
+	if !*asJSON {
+		fmt.Printf("Block server on %s, %d processors, %s.\n", block.Addr, *threads, how)
+		if host, _, _ := net.SplitHostPort(*listen); host != "127.0.0.1" && host != "localhost" && host != "::1" {
+			fmt.Println("It has no login and no encryption: any machine that can reach this port can give it work.")
+		}
 	}
-	fmt.Println("Stop it with Ctrl+C.")
+	if !*asJSON {
+		fmt.Println("Stop it with Ctrl+C.")
+	}
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
+	if *withStdin {
+		go func() {
+			io.Copy(io.Discard, os.Stdin)
+			stop <- os.Interrupt
+		}()
+	}
 	select {
 	case <-stop:
 	case <-block.Done:
