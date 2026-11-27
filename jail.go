@@ -211,6 +211,12 @@ func jailTest() error {
 		return errors.New("the locked probe did not finish")
 	}
 	raw, _ := os.ReadFile(p.Log)
+	if len(raw) == 0 {
+		// The probe said nothing: show what the lock itself reported, when it keeps a journal.
+		if said, err := os.ReadFile(p.Log + ".bridge"); err == nil {
+			fmt.Printf("the locked probe printed nothing. The lock reported:\n%s\n", said)
+		}
+	}
 	locked := map[string]string{}
 	for _, line := range strings.Split(string(raw), "\n") {
 		if what, verdict, ok := strings.Cut(strings.TrimSpace(line), ": "); ok {

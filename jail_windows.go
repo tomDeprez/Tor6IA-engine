@@ -173,7 +173,8 @@ func startJailed(j Jail, front, program string, args []string) (*jailProc, error
 	if err != nil {
 		return nil, err
 	}
-	null, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	// What the bridge itself prints goes to a file we open here: the bridge could not create it.
+	null, err := os.Create(logPath + ".bridge")
 	if err != nil {
 		return nil, err
 	}
@@ -233,6 +234,14 @@ func startJailed(j Jail, front, program string, args []string) (*jailProc, error
 	}
 	go func() {
 		syscall.WaitForSingleObject(pi.Process, syscall.INFINITE)
+		var code uint32
+		syscall.GetExitCodeProcess(pi.Process, &code)
+		if code != 0 {
+			if f, err := os.OpenFile(logPath+".bridge", os.O_APPEND|os.O_WRONLY, 0); err == nil {
+				fmt.Fprintf(f, "the locked side ended with code %#x\n", code)
+				f.Close()
+			}
+		}
 		syscall.CloseHandle(pi.Process)
 		close(p.Done)
 	}()
